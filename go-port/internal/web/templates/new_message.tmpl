@@ -1,0 +1,29 @@
+{{define "title"}}{{if .to}}Reply to {{.to}}{{else}}New Message{{end}}{{end}}
+{{define "script"}}handleFormSubmit('#message_form', {
+  onSuccess: function() { alert('Message sent!'); window.location.href = '/inbox'; },
+  onError: function() { alert('Failed to send message.'); }
+});{{end}}
+{{define "content"}}
+<div class="card">
+  <div class="card-body">
+    <form id="message_form" method="POST" action="/inbox/send">
+      <div>
+        <label for="to">To (Fingerprint):</label>
+        <input type="text" name="to" id="to" value="{{.to}}" required />
+      </div>
+
+      <div>
+        <label for="message">Message:</label>
+        <textarea
+          name="message"
+          id="message"
+          placeholder="Enter your message here..."
+        ></textarea>
+      </div>
+
+      <input type="hidden" name="csrf_token" value="{{.csrf_token}}" />
+      <button type="submit" class="btn btn-primary">Send Message</button>
+    </form>
+  </div>
+</div>
+{{end}}

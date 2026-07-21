@@ -1,0 +1,51 @@
+{{define "title"}}{{.name}} Inbox{{end}}
+{{define "script"}}autoRefresh(15000);
+filterList('.search-box input', '.inbox li');{{end}}
+{{define "content"}}
+<div class="search-box">
+  <input type="text" placeholder="Search inbox..." />
+</div>
+
+<ul class="inbox">
+  {{range .inbox_messages}}
+  <li class="message {{if .seen_at}}read{{else}}unread{{end}}">
+    <a href="/inbox/{{.id}}">
+      <div class="list-item-primary">
+        {{.sender_name}}@{{.sender}}
+      </div>
+      <div class="list-item-secondary">
+        Received
+        <time class="timeago" datetime="{{.created_at}}">{{.created_at}}</time>
+        {{if .seen_at}}, seen
+        <time class="timeago" datetime="{{.seen_at}}">{{.seen_at}}</time>
+        {{end}}
+      </div>
+    </a>
+  </li>
+  {{end}}
+</ul>
+
+{{if gt .inbox_pages 1}}
+<div class="pagination">
+  {{if gt .page 1}}
+  <div class="page-item">
+    <a href="/inbox?p={{sub .page 1}}" class="page-link">&larr; Previous</a>
+  </div>
+  {{else}}
+  <div class="page-item disabled">
+    <span class="page-link">&larr; Previous</span>
+  </div>
+  {{end}}
+  <div class="page-item" style="padding: 0 1rem; display: flex; align-items: center">
+    Page {{.page}} of {{.inbox_pages}}
+  </div>
+  {{if lt .page .inbox_pages}}
+  <div class="page-item">
+    <a href="/inbox?p={{add .page 1}}" class="page-link">Next &rarr;</a>
+  </div>
+  {{else}}
+  <div class="page-item disabled"><span class="page-link">Next &rarr;</span></div>
+  {{end}}
+</div>
+{{end}}
+{{end}}

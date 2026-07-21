@@ -20,11 +20,13 @@ from pwnagotchi.voice import Voice
 
 WHITE = 0x00  # white is actually black on jays image
 BLACK = 0xFF  # black is actually white on jays image
+ROOT = None
 
 
 class View(object):
     def __init__(self, config, impl, state=None):
         global ROOT, BLACK, WHITE
+        ROOT = self
 
         self.invert = 0
         self._black = 0xFF
@@ -119,7 +121,7 @@ class View(object):
         self._state.has_element(key)
 
     def add_element(self, key, elem):
-        if self.invert is 1 and elem.color:
+        if self.invert == 1 and elem.color:
             if elem.color == 0xff:
                 elem.color = 0x00
             elif elem.color == 0x00:

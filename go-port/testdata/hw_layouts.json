@@ -1,0 +1,6669 @@
+{
+  "inky": {
+    "width": 212,
+    "height": 104,
+    "face": [
+      0,
+      37
+    ],
+    "name": [
+      5,
+      18
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      30,
+      0
+    ],
+    "uptime": [
+      147,
+      0
+    ],
+    "line1": [
+      0,
+      12,
+      212,
+      12
+    ],
+    "line2": [
+      0,
+      92,
+      212,
+      92
+    ],
+    "friend_face": [
+      0,
+      76
+    ],
+    "friend_name": [
+      40,
+      78
+    ],
+    "shakes": [
+      0,
+      93
+    ],
+    "mode": [
+      187,
+      93
+    ],
+    "status": {
+      "pos": [
+        102,
+        18
+      ],
+      "font": null,
+      "max": 20
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      28,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "whisplay": {
+    "width": 240,
+    "height": 280,
+    "face": [
+      0,
+      35
+    ],
+    "name": [
+      20,
+      0
+    ],
+    "channel": [
+      5,
+      15
+    ],
+    "aps": [
+      33,
+      15
+    ],
+    "uptime": [
+      195,
+      15
+    ],
+    "line1": [
+      0,
+      30,
+      280,
+      30
+    ],
+    "line2": [
+      0,
+      220,
+      280,
+      220
+    ],
+    "friend_face": [
+      0,
+      92
+    ],
+    "friend_name": [
+      40,
+      94
+    ],
+    "shakes": [
+      17,
+      223
+    ],
+    "mode": [
+      235,
+      223
+    ],
+    "status": {
+      "pos": [
+        140,
+        35
+      ],
+      "font": null,
+      "max": 20
+    },
+    "_fonts_setup": [
+      10,
+      9,
+      10,
+      35,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "inkyv2": {
+    "width": 212,
+    "height": 104,
+    "face": [
+      0,
+      37
+    ],
+    "name": [
+      5,
+      18
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      30,
+      0
+    ],
+    "uptime": [
+      147,
+      0
+    ],
+    "line1": [
+      0,
+      12,
+      212,
+      12
+    ],
+    "line2": [
+      0,
+      92,
+      212,
+      92
+    ],
+    "friend_face": [
+      0,
+      76
+    ],
+    "friend_name": [
+      40,
+      78
+    ],
+    "shakes": [
+      0,
+      93
+    ],
+    "mode": [
+      187,
+      93
+    ],
+    "status": {
+      "pos": [
+        102,
+        18
+      ],
+      "font": null,
+      "max": 20
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      28,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "wavesharelcd0in96": {
+    "width": 160,
+    "height": 80,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      80,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      80,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "wavesharelcd1in3": {
+    "width": 240,
+    "height": 240,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      168,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      168,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "wavesharelcd1in8": {
+    "width": 160,
+    "height": 128,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      168,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      168,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "wavesharelcd1in9": {
+    "width": 170,
+    "height": 320,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      168,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      168,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "wavesharelcd1in14": {
+    "width": 240,
+    "height": 135,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      168,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      168,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "wavesharelcd1in28": {
+    "width": 240,
+    "height": 240,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      168,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      168,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "wavesharelcd1in47": {
+    "width": 172,
+    "height": 320,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      168,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      168,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "wavesharelcd1in54": {
+    "width": 240,
+    "height": 240,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      168,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      168,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "wavesharelcd1in69": {
+    "width": 240,
+    "height": 280,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      168,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      168,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "wavesharelcd2in0": {
+    "width": 240,
+    "height": 320,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      168,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      168,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "wavesharelcd2in4": {
+    "width": 240,
+    "height": 320,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      168,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      168,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "dummydisplay": {
+    "width": null,
+    "height": null,
+    "face": [
+      0,
+      null
+    ],
+    "name": [
+      5,
+      null
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      null,
+      0
+    ],
+    "uptime": [
+      null,
+      0
+    ],
+    "line1": [
+      0,
+      null,
+      null,
+      null
+    ],
+    "line2": [
+      0,
+      null,
+      null,
+      null
+    ],
+    "friend_face": [
+      0,
+      null
+    ],
+    "friend_name": [
+      null,
+      null
+    ],
+    "shakes": [
+      0,
+      null
+    ],
+    "mode": [
+      null,
+      null
+    ],
+    "status": {
+      "pos": [
+        null,
+        null
+      ],
+      "font": null,
+      "max": null
+    },
+    "_fonts_setup": null,
+    "_status_font_base": "Small",
+    "_width_literal": false,
+    "_height_literal": false
+  },
+  "papirus": {
+    "width": 200,
+    "height": 96,
+    "face": [
+      0,
+      24
+    ],
+    "name": [
+      5,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      25,
+      0
+    ],
+    "uptime": [
+      135,
+      0
+    ],
+    "line1": [
+      0,
+      11,
+      200,
+      11
+    ],
+    "line2": [
+      0,
+      85,
+      200,
+      85
+    ],
+    "friend_face": [
+      0,
+      69
+    ],
+    "friend_name": [
+      40,
+      71
+    ],
+    "shakes": [
+      0,
+      86
+    ],
+    "mode": [
+      175,
+      86
+    ],
+    "status": {
+      "pos": [
+        85,
+        14
+      ],
+      "font": null,
+      "max": 16
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      23,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "oledhat": {
+    "width": 128,
+    "height": 64,
+    "face": [
+      0,
+      30
+    ],
+    "name": [
+      0,
+      10
+    ],
+    "channel": [
+      72,
+      10
+    ],
+    "aps": [
+      0,
+      0
+    ],
+    "uptime": [
+      87,
+      0
+    ],
+    "line1": [
+      0,
+      9,
+      128,
+      9
+    ],
+    "line2": [
+      0,
+      54,
+      128,
+      54
+    ],
+    "friend_face": [
+      0,
+      41
+    ],
+    "friend_name": [
+      40,
+      43
+    ],
+    "shakes": [
+      0,
+      55
+    ],
+    "mode": [
+      107,
+      10
+    ],
+    "status": {
+      "pos": [
+        37,
+        19
+      ],
+      "font": null,
+      "max": 18
+    },
+    "_fonts_setup": [
+      8,
+      8,
+      8,
+      10,
+      10,
+      8
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "lcdhat": {
+    "width": 240,
+    "height": 240,
+    "face": [
+      0,
+      40
+    ],
+    "name": [
+      5,
+      20
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      28,
+      0
+    ],
+    "uptime": [
+      175,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      240,
+      14
+    ],
+    "line2": [
+      0,
+      108,
+      240,
+      108
+    ],
+    "friend_face": [
+      0,
+      92
+    ],
+    "friend_name": [
+      40,
+      94
+    ],
+    "shakes": [
+      0,
+      109
+    ],
+    "mode": [
+      215,
+      109
+    ],
+    "status": {
+      "pos": [
+        125,
+        20
+      ],
+      "font": null,
+      "max": 20
+    },
+    "_fonts_setup": [
+      10,
+      9,
+      10,
+      35,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "dfrobot_1": {
+    "width": 250,
+    "height": 122,
+    "face": [
+      0,
+      40
+    ],
+    "name": [
+      5,
+      20
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      28,
+      0
+    ],
+    "uptime": [
+      185,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      250,
+      14
+    ],
+    "line2": [
+      0,
+      108,
+      250,
+      108
+    ],
+    "friend_face": [
+      0,
+      92
+    ],
+    "friend_name": [
+      40,
+      94
+    ],
+    "shakes": [
+      0,
+      109
+    ],
+    "mode": [
+      225,
+      109
+    ],
+    "status": {
+      "pos": [
+        125,
+        20
+      ],
+      "font": null,
+      "max": 20
+    },
+    "_fonts_setup": [
+      10,
+      9,
+      10,
+      35,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "dfrobot_2": {
+    "width": 250,
+    "height": 122,
+    "face": [
+      0,
+      40
+    ],
+    "name": [
+      5,
+      20
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      28,
+      0
+    ],
+    "uptime": [
+      185,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      250,
+      14
+    ],
+    "line2": [
+      0,
+      108,
+      250,
+      108
+    ],
+    "friend_face": [
+      0,
+      92
+    ],
+    "friend_name": [
+      40,
+      94
+    ],
+    "shakes": [
+      0,
+      109
+    ],
+    "mode": [
+      225,
+      109
+    ],
+    "status": {
+      "pos": [
+        125,
+        20
+      ],
+      "font": null,
+      "max": 20
+    },
+    "_fonts_setup": [
+      10,
+      9,
+      10,
+      35,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare144lcd": {
+    "width": 128,
+    "height": 128,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      127,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      127,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare35lcd": {
+    "width": 480,
+    "height": 320,
+    "face": [
+      110,
+      100
+    ],
+    "name": [
+      10,
+      30
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      80,
+      0
+    ],
+    "uptime": [
+      400,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      480,
+      14
+    ],
+    "line2": [
+      0,
+      300,
+      480,
+      300
+    ],
+    "friend_face": [
+      0,
+      220
+    ],
+    "friend_name": [
+      50,
+      225
+    ],
+    "shakes": [
+      10,
+      300
+    ],
+    "mode": [
+      440,
+      300
+    ],
+    "status": {
+      "pos": [
+        80,
+        200
+      ],
+      "font": null,
+      "max": 100
+    },
+    "_fonts_setup": [
+      12,
+      10,
+      12,
+      70,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "spotpear24inch": {
+    "width": 320,
+    "height": 240,
+    "face": [
+      35,
+      50
+    ],
+    "name": [
+      5,
+      20
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      40,
+      0
+    ],
+    "uptime": [
+      240,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      320,
+      14
+    ],
+    "line2": [
+      0,
+      220,
+      320,
+      220
+    ],
+    "friend_face": [
+      0,
+      130
+    ],
+    "friend_name": [
+      40,
+      135
+    ],
+    "shakes": [
+      0,
+      220
+    ],
+    "mode": [
+      280,
+      220
+    ],
+    "status": {
+      "pos": [
+        80,
+        160
+      ],
+      "font": null,
+      "max": 20
+    },
+    "_fonts_setup": [
+      12,
+      10,
+      12,
+      70,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "spotpear154lcd": {
+    "width": 240,
+    "height": 240,
+    "face": [
+      0,
+      40
+    ],
+    "name": [
+      5,
+      20
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      28,
+      0
+    ],
+    "uptime": [
+      175,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      240,
+      14
+    ],
+    "line2": [
+      0,
+      108,
+      240,
+      108
+    ],
+    "friend_face": [
+      0,
+      92
+    ],
+    "friend_name": [
+      40,
+      94
+    ],
+    "shakes": [
+      0,
+      109
+    ],
+    "mode": [
+      215,
+      109
+    ],
+    "status": {
+      "pos": [
+        125,
+        20
+      ],
+      "font": null,
+      "max": 20
+    },
+    "_fonts_setup": [
+      10,
+      9,
+      10,
+      35,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "displayhatmini": {
+    "width": 320,
+    "height": 240,
+    "face": [
+      35,
+      50
+    ],
+    "name": [
+      5,
+      20
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      40,
+      0
+    ],
+    "uptime": [
+      240,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      320,
+      14
+    ],
+    "line2": [
+      0,
+      220,
+      320,
+      220
+    ],
+    "friend_face": [
+      0,
+      130
+    ],
+    "friend_name": [
+      40,
+      135
+    ],
+    "shakes": [
+      0,
+      220
+    ],
+    "mode": [
+      280,
+      220
+    ],
+    "status": {
+      "pos": [
+        80,
+        160
+      ],
+      "font": null,
+      "max": 20
+    },
+    "_fonts_setup": [
+      12,
+      10,
+      12,
+      70,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "pirateaudio": {
+    "width": 240,
+    "height": 240,
+    "face": [
+      0,
+      40
+    ],
+    "name": [
+      5,
+      20
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      28,
+      0
+    ],
+    "uptime": [
+      175,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      240,
+      14
+    ],
+    "line2": [
+      0,
+      108,
+      240,
+      108
+    ],
+    "friend_face": [
+      0,
+      92
+    ],
+    "friend_name": [
+      40,
+      94
+    ],
+    "shakes": [
+      0,
+      109
+    ],
+    "mode": [
+      215,
+      109
+    ],
+    "status": {
+      "pos": [
+        125,
+        20
+      ],
+      "font": null,
+      "max": 20
+    },
+    "_fonts_setup": [
+      10,
+      9,
+      10,
+      35,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "gfxhat": {
+    "width": 128,
+    "height": 64,
+    "face": [
+      0,
+      30
+    ],
+    "name": [
+      0,
+      10
+    ],
+    "channel": [
+      72,
+      10
+    ],
+    "aps": [
+      0,
+      0
+    ],
+    "uptime": [
+      87,
+      0
+    ],
+    "line1": [
+      0,
+      9,
+      128,
+      9
+    ],
+    "line2": [
+      0,
+      54,
+      128,
+      54
+    ],
+    "friend_face": [
+      0,
+      41
+    ],
+    "friend_name": [
+      40,
+      43
+    ],
+    "shakes": [
+      0,
+      55
+    ],
+    "mode": [
+      107,
+      10
+    ],
+    "status": {
+      "pos": [
+        37,
+        19
+      ],
+      "font": null,
+      "max": 18
+    },
+    "_fonts_setup": [
+      8,
+      8,
+      8,
+      10,
+      10,
+      8
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "argonpod": {
+    "width": 320,
+    "height": 240,
+    "face": [
+      0,
+      36
+    ],
+    "name": [
+      150,
+      36
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      40,
+      0
+    ],
+    "uptime": [
+      240,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      320,
+      14
+    ],
+    "line2": [
+      0,
+      220,
+      320,
+      220
+    ],
+    "friend_face": [
+      0,
+      130
+    ],
+    "friend_name": [
+      40,
+      135
+    ],
+    "shakes": [
+      0,
+      220
+    ],
+    "mode": [
+      280,
+      220
+    ],
+    "status": {
+      "pos": [
+        150,
+        48
+      ],
+      "font": null,
+      "max": 20
+    },
+    "_fonts_setup": [
+      12,
+      10,
+      12,
+      70,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "pitft": {
+    "width": 320,
+    "height": 240,
+    "face": [
+      0,
+      36
+    ],
+    "name": [
+      150,
+      36
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      40,
+      0
+    ],
+    "uptime": [
+      240,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      320,
+      14
+    ],
+    "line2": [
+      0,
+      220,
+      320,
+      220
+    ],
+    "friend_face": [
+      0,
+      130
+    ],
+    "friend_name": [
+      40,
+      135
+    ],
+    "shakes": [
+      0,
+      220
+    ],
+    "mode": [
+      280,
+      220
+    ],
+    "status": {
+      "pos": [
+        150,
+        48
+      ],
+      "font": null,
+      "max": 20
+    },
+    "_fonts_setup": [
+      12,
+      10,
+      12,
+      70,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "gamepi15": {
+    "width": 240,
+    "height": 240,
+    "face": [
+      0,
+      40
+    ],
+    "name": [
+      5,
+      20
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      28,
+      0
+    ],
+    "uptime": [
+      175,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      240,
+      14
+    ],
+    "line2": [
+      0,
+      108,
+      240,
+      108
+    ],
+    "friend_face": [
+      0,
+      92
+    ],
+    "friend_name": [
+      40,
+      94
+    ],
+    "shakes": [
+      0,
+      109
+    ],
+    "mode": [
+      215,
+      109
+    ],
+    "status": {
+      "pos": [
+        125,
+        20
+      ],
+      "font": null,
+      "max": 20
+    },
+    "_fonts_setup": [
+      10,
+      9,
+      10,
+      35,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "gamepi20": {
+    "width": 320,
+    "height": 240,
+    "face": [
+      35,
+      50
+    ],
+    "name": [
+      5,
+      20
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      40,
+      0
+    ],
+    "uptime": [
+      240,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      320,
+      14
+    ],
+    "line2": [
+      0,
+      220,
+      320,
+      220
+    ],
+    "friend_face": [
+      0,
+      130
+    ],
+    "friend_name": [
+      40,
+      135
+    ],
+    "shakes": [
+      0,
+      220
+    ],
+    "mode": [
+      280,
+      220
+    ],
+    "status": {
+      "pos": [
+        80,
+        160
+      ],
+      "font": null,
+      "max": 20
+    },
+    "_fonts_setup": [
+      12,
+      10,
+      12,
+      70,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "minipitft": {
+    "width": 240,
+    "height": 240,
+    "face": [
+      0,
+      40
+    ],
+    "name": [
+      5,
+      20
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      28,
+      0
+    ],
+    "uptime": [
+      175,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      240,
+      14
+    ],
+    "line2": [
+      0,
+      108,
+      240,
+      108
+    ],
+    "friend_face": [
+      0,
+      92
+    ],
+    "friend_name": [
+      40,
+      94
+    ],
+    "shakes": [
+      0,
+      109
+    ],
+    "mode": [
+      215,
+      109
+    ],
+    "status": {
+      "pos": [
+        125,
+        20
+      ],
+      "font": null,
+      "max": 20
+    },
+    "_fonts_setup": [
+      10,
+      9,
+      10,
+      35,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "minipitft2": {
+    "width": 240,
+    "height": 135,
+    "face": [
+      0,
+      40
+    ],
+    "name": [
+      5,
+      20
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      28,
+      0
+    ],
+    "uptime": [
+      175,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      240,
+      14
+    ],
+    "line2": [
+      0,
+      108,
+      240,
+      108
+    ],
+    "friend_face": [
+      0,
+      92
+    ],
+    "friend_name": [
+      40,
+      94
+    ],
+    "shakes": [
+      0,
+      109
+    ],
+    "mode": [
+      215,
+      109
+    ],
+    "status": {
+      "pos": [
+        125,
+        20
+      ],
+      "font": null,
+      "max": 20
+    },
+    "_fonts_setup": [
+      10,
+      9,
+      10,
+      35,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "tftbonnet": {
+    "width": 240,
+    "height": 240,
+    "face": [
+      0,
+      40
+    ],
+    "name": [
+      5,
+      20
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      28,
+      0
+    ],
+    "uptime": [
+      175,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      240,
+      14
+    ],
+    "line2": [
+      0,
+      108,
+      240,
+      108
+    ],
+    "friend_face": [
+      0,
+      92
+    ],
+    "friend_name": [
+      40,
+      94
+    ],
+    "shakes": [
+      0,
+      109
+    ],
+    "mode": [
+      215,
+      109
+    ],
+    "status": {
+      "pos": [
+        125,
+        20
+      ],
+      "font": null,
+      "max": 20
+    },
+    "_fonts_setup": [
+      10,
+      9,
+      10,
+      35,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshareoledlcd": {
+    "width": 320,
+    "height": 240,
+    "face": [
+      0,
+      36
+    ],
+    "name": [
+      150,
+      36
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      40,
+      0
+    ],
+    "uptime": [
+      240,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      320,
+      14
+    ],
+    "line2": [
+      0,
+      220,
+      320,
+      220
+    ],
+    "friend_face": [
+      0,
+      130
+    ],
+    "friend_name": [
+      40,
+      135
+    ],
+    "shakes": [
+      0,
+      220
+    ],
+    "mode": [
+      280,
+      220
+    ],
+    "status": {
+      "pos": [
+        150,
+        48
+      ],
+      "font": null,
+      "max": 20
+    },
+    "_fonts_setup": [
+      12,
+      10,
+      12,
+      70,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshareoledlcdvert": {
+    "width": 240,
+    "height": 320,
+    "face": [
+      0,
+      40
+    ],
+    "name": [
+      5,
+      20
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      28,
+      0
+    ],
+    "uptime": [
+      175,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      240,
+      14
+    ],
+    "line2": [
+      0,
+      108,
+      240,
+      108
+    ],
+    "friend_face": [
+      0,
+      92
+    ],
+    "friend_name": [
+      40,
+      94
+    ],
+    "shakes": [
+      0,
+      109
+    ],
+    "mode": [
+      215,
+      109
+    ],
+    "status": {
+      "pos": [
+        125,
+        20
+      ],
+      "font": null,
+      "max": 20
+    },
+    "_fonts_setup": [
+      10,
+      9,
+      10,
+      35,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "i2coled": {
+    "width": null,
+    "height": null,
+    "face": [
+      0,
+      30
+    ],
+    "name": [
+      0,
+      10
+    ],
+    "channel": [
+      72,
+      10
+    ],
+    "aps": [
+      0,
+      0
+    ],
+    "uptime": [
+      87,
+      0
+    ],
+    "line1": [
+      0,
+      9,
+      128,
+      9
+    ],
+    "line2": [
+      0,
+      54,
+      128,
+      54
+    ],
+    "friend_face": [
+      0,
+      41
+    ],
+    "friend_name": [
+      40,
+      43
+    ],
+    "shakes": [
+      0,
+      55
+    ],
+    "mode": [
+      107,
+      10
+    ],
+    "status": {
+      "pos": [
+        37,
+        19
+      ],
+      "font": null,
+      "max": 18
+    },
+    "_fonts_setup": [
+      8,
+      8,
+      8,
+      10,
+      10,
+      8
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": false,
+    "_height_literal": false
+  },
+  "waveshare1in02": {
+    "width": 80,
+    "height": 128,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      80,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      80,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare1in54": {
+    "width": 200,
+    "height": 200,
+    "face": [
+      0,
+      40
+    ],
+    "name": [
+      5,
+      20
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      28,
+      0
+    ],
+    "uptime": [
+      135,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      200,
+      14
+    ],
+    "line2": [
+      0,
+      186,
+      200,
+      186
+    ],
+    "friend_face": [
+      0,
+      92
+    ],
+    "friend_name": [
+      40,
+      94
+    ],
+    "shakes": [
+      0,
+      187
+    ],
+    "mode": [
+      170,
+      187
+    ],
+    "status": {
+      "pos": [
+        5,
+        90
+      ],
+      "font": null,
+      "max": 20
+    },
+    "_fonts_setup": [
+      10,
+      9,
+      10,
+      35,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare1in54_v2": {
+    "width": 200,
+    "height": 200,
+    "face": [
+      0,
+      40
+    ],
+    "name": [
+      5,
+      20
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      28,
+      0
+    ],
+    "uptime": [
+      135,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      200,
+      14
+    ],
+    "line2": [
+      0,
+      186,
+      200,
+      186
+    ],
+    "friend_face": [
+      0,
+      92
+    ],
+    "friend_name": [
+      40,
+      94
+    ],
+    "shakes": [
+      0,
+      187
+    ],
+    "mode": [
+      170,
+      187
+    ],
+    "status": {
+      "pos": [
+        5,
+        90
+      ],
+      "font": null,
+      "max": 20
+    },
+    "_fonts_setup": [
+      10,
+      9,
+      10,
+      35,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare1in54b": {
+    "width": 200,
+    "height": 200,
+    "face": [
+      0,
+      40
+    ],
+    "name": [
+      5,
+      20
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      28,
+      0
+    ],
+    "uptime": [
+      135,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      200,
+      14
+    ],
+    "line2": [
+      0,
+      186,
+      200,
+      186
+    ],
+    "friend_face": [
+      0,
+      92
+    ],
+    "friend_name": [
+      40,
+      94
+    ],
+    "shakes": [
+      0,
+      187
+    ],
+    "mode": [
+      170,
+      187
+    ],
+    "status": {
+      "pos": [
+        5,
+        90
+      ],
+      "font": null,
+      "max": 20
+    },
+    "_fonts_setup": [
+      10,
+      9,
+      10,
+      35,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare1in54b_v2": {
+    "width": 200,
+    "height": 200,
+    "face": [
+      0,
+      40
+    ],
+    "name": [
+      5,
+      20
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      28,
+      0
+    ],
+    "uptime": [
+      135,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      200,
+      14
+    ],
+    "line2": [
+      0,
+      186,
+      200,
+      186
+    ],
+    "friend_face": [
+      0,
+      92
+    ],
+    "friend_name": [
+      40,
+      94
+    ],
+    "shakes": [
+      0,
+      187
+    ],
+    "mode": [
+      170,
+      187
+    ],
+    "status": {
+      "pos": [
+        5,
+        90
+      ],
+      "font": null,
+      "max": 20
+    },
+    "_fonts_setup": [
+      10,
+      9,
+      10,
+      35,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare1in54c": {
+    "width": 152,
+    "height": 152,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      152,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      152,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare1in64g": {
+    "width": 168,
+    "height": 168,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      168,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      168,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare2in7": {
+    "width": 264,
+    "height": 176,
+    "face": [
+      66,
+      27
+    ],
+    "name": [
+      5,
+      73
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      28,
+      0
+    ],
+    "uptime": [
+      199,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      264,
+      14
+    ],
+    "line2": [
+      0,
+      162,
+      264,
+      162
+    ],
+    "friend_face": [
+      0,
+      146
+    ],
+    "friend_name": [
+      40,
+      146
+    ],
+    "shakes": [
+      0,
+      163
+    ],
+    "mode": [
+      239,
+      163
+    ],
+    "status": {
+      "pos": [
+        38,
+        93
+      ],
+      "font": null,
+      "max": 40
+    },
+    "_fonts_setup": [
+      10,
+      9,
+      10,
+      35,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare2in7_v2": {
+    "width": 264,
+    "height": 176,
+    "face": [
+      66,
+      27
+    ],
+    "name": [
+      5,
+      73
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      28,
+      0
+    ],
+    "uptime": [
+      199,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      264,
+      14
+    ],
+    "line2": [
+      0,
+      162,
+      264,
+      162
+    ],
+    "friend_face": [
+      0,
+      146
+    ],
+    "friend_name": [
+      40,
+      146
+    ],
+    "shakes": [
+      0,
+      163
+    ],
+    "mode": [
+      239,
+      163
+    ],
+    "status": {
+      "pos": [
+        38,
+        93
+      ],
+      "font": null,
+      "max": 40
+    },
+    "_fonts_setup": [
+      10,
+      9,
+      10,
+      35,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare2in7b": {
+    "width": 264,
+    "height": 176,
+    "face": [
+      66,
+      27
+    ],
+    "name": [
+      5,
+      73
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      28,
+      0
+    ],
+    "uptime": [
+      199,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      264,
+      14
+    ],
+    "line2": [
+      0,
+      162,
+      264,
+      162
+    ],
+    "friend_face": [
+      0,
+      146
+    ],
+    "friend_name": [
+      40,
+      146
+    ],
+    "shakes": [
+      0,
+      163
+    ],
+    "mode": [
+      239,
+      163
+    ],
+    "status": {
+      "pos": [
+        38,
+        93
+      ],
+      "font": null,
+      "max": 40
+    },
+    "_fonts_setup": [
+      10,
+      9,
+      10,
+      35,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare2in7b_v2": {
+    "width": 264,
+    "height": 176,
+    "face": [
+      66,
+      27
+    ],
+    "name": [
+      5,
+      73
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      28,
+      0
+    ],
+    "uptime": [
+      199,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      264,
+      14
+    ],
+    "line2": [
+      0,
+      162,
+      264,
+      162
+    ],
+    "friend_face": [
+      0,
+      146
+    ],
+    "friend_name": [
+      40,
+      146
+    ],
+    "shakes": [
+      0,
+      163
+    ],
+    "mode": [
+      239,
+      163
+    ],
+    "status": {
+      "pos": [
+        38,
+        93
+      ],
+      "font": null,
+      "max": 40
+    },
+    "_fonts_setup": [
+      10,
+      9,
+      10,
+      35,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare2in9": {
+    "width": 296,
+    "height": 128,
+    "face": [
+      0,
+      40
+    ],
+    "name": [
+      5,
+      25
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      28,
+      0
+    ],
+    "uptime": [
+      230,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      296,
+      14
+    ],
+    "line2": [
+      0,
+      112,
+      296,
+      112
+    ],
+    "friend_face": [
+      0,
+      96
+    ],
+    "friend_name": [
+      40,
+      96
+    ],
+    "shakes": [
+      0,
+      114
+    ],
+    "mode": [
+      268,
+      114
+    ],
+    "status": {
+      "pos": [
+        130,
+        25
+      ],
+      "font": null,
+      "max": 28
+    },
+    "_fonts_setup": [
+      10,
+      9,
+      10,
+      35,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare2in9bc": {
+    "width": 128,
+    "height": 296,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      128,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      128,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare2in9d": {
+    "width": 128,
+    "height": 296,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      80,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      80,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare2in9_v2": {
+    "width": 296,
+    "height": 128,
+    "face": [
+      0,
+      40
+    ],
+    "name": [
+      5,
+      25
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      28,
+      0
+    ],
+    "uptime": [
+      230,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      296,
+      14
+    ],
+    "line2": [
+      0,
+      112,
+      296,
+      112
+    ],
+    "friend_face": [
+      0,
+      96
+    ],
+    "friend_name": [
+      40,
+      96
+    ],
+    "shakes": [
+      0,
+      114
+    ],
+    "mode": [
+      268,
+      114
+    ],
+    "status": {
+      "pos": [
+        130,
+        25
+      ],
+      "font": null,
+      "max": 28
+    },
+    "_fonts_setup": [
+      10,
+      9,
+      10,
+      35,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare2in9b_v3": {
+    "width": 296,
+    "height": 128,
+    "face": [
+      0,
+      40
+    ],
+    "name": [
+      5,
+      25
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      28,
+      0
+    ],
+    "uptime": [
+      230,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      296,
+      14
+    ],
+    "line2": [
+      0,
+      112,
+      296,
+      112
+    ],
+    "friend_face": [
+      0,
+      96
+    ],
+    "friend_name": [
+      40,
+      96
+    ],
+    "shakes": [
+      0,
+      114
+    ],
+    "mode": [
+      268,
+      114
+    ],
+    "status": {
+      "pos": [
+        130,
+        25
+      ],
+      "font": null,
+      "max": 28
+    },
+    "_fonts_setup": [
+      10,
+      9,
+      10,
+      35,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare2in9b_v4": {
+    "width": 296,
+    "height": 128,
+    "face": [
+      0,
+      40
+    ],
+    "name": [
+      5,
+      25
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      28,
+      0
+    ],
+    "uptime": [
+      230,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      296,
+      14
+    ],
+    "line2": [
+      0,
+      112,
+      296,
+      112
+    ],
+    "friend_face": [
+      0,
+      96
+    ],
+    "friend_name": [
+      40,
+      96
+    ],
+    "shakes": [
+      0,
+      114
+    ],
+    "mode": [
+      268,
+      114
+    ],
+    "status": {
+      "pos": [
+        130,
+        25
+      ],
+      "font": null,
+      "max": 28
+    },
+    "_fonts_setup": [
+      10,
+      9,
+      10,
+      35,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare_1": {
+    "width": 250,
+    "height": 122,
+    "face": [
+      0,
+      40
+    ],
+    "name": [
+      5,
+      20
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      28,
+      0
+    ],
+    "uptime": [
+      185,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      250,
+      14
+    ],
+    "line2": [
+      0,
+      108,
+      250,
+      108
+    ],
+    "friend_face": [
+      0,
+      92
+    ],
+    "friend_name": [
+      40,
+      94
+    ],
+    "shakes": [
+      0,
+      109
+    ],
+    "mode": [
+      225,
+      109
+    ],
+    "status": {
+      "pos": [
+        125,
+        20
+      ],
+      "font": null,
+      "max": 20
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      35,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare_2": {
+    "width": 250,
+    "height": 122,
+    "face": [
+      0,
+      40
+    ],
+    "name": [
+      5,
+      20
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      28,
+      0
+    ],
+    "uptime": [
+      185,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      250,
+      14
+    ],
+    "line2": [
+      0,
+      108,
+      250,
+      108
+    ],
+    "friend_face": [
+      0,
+      92
+    ],
+    "friend_name": [
+      40,
+      94
+    ],
+    "shakes": [
+      0,
+      109
+    ],
+    "mode": [
+      225,
+      109
+    ],
+    "status": {
+      "pos": [
+        125,
+        20
+      ],
+      "font": null,
+      "max": 20
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      35,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare_3": {
+    "width": 250,
+    "height": 122,
+    "face": [
+      0,
+      40
+    ],
+    "name": [
+      5,
+      20
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      28,
+      0
+    ],
+    "uptime": [
+      185,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      250,
+      14
+    ],
+    "line2": [
+      0,
+      108,
+      250,
+      108
+    ],
+    "friend_face": [
+      0,
+      92
+    ],
+    "friend_name": [
+      40,
+      94
+    ],
+    "shakes": [
+      0,
+      109
+    ],
+    "mode": [
+      225,
+      109
+    ],
+    "status": {
+      "pos": [
+        125,
+        20
+      ],
+      "font": null,
+      "max": 20
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      35,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare_4": {
+    "width": 250,
+    "height": 122,
+    "face": [
+      0,
+      40
+    ],
+    "name": [
+      5,
+      20
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      28,
+      0
+    ],
+    "uptime": [
+      185,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      250,
+      14
+    ],
+    "line2": [
+      0,
+      108,
+      250,
+      108
+    ],
+    "friend_face": [
+      0,
+      92
+    ],
+    "friend_name": [
+      40,
+      94
+    ],
+    "shakes": [
+      0,
+      109
+    ],
+    "mode": [
+      225,
+      109
+    ],
+    "status": {
+      "pos": [
+        125,
+        20
+      ],
+      "font": null,
+      "max": 20
+    },
+    "_fonts_setup": [
+      10,
+      9,
+      10,
+      35,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "adafruit2in13_v3": {
+    "width": 250,
+    "height": 122,
+    "face": [
+      0,
+      40
+    ],
+    "name": [
+      5,
+      20
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      28,
+      0
+    ],
+    "uptime": [
+      185,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      250,
+      14
+    ],
+    "line2": [
+      0,
+      108,
+      250,
+      108
+    ],
+    "friend_face": [
+      0,
+      92
+    ],
+    "friend_name": [
+      40,
+      94
+    ],
+    "shakes": [
+      0,
+      109
+    ],
+    "mode": [
+      225,
+      109
+    ],
+    "status": {
+      "pos": [
+        125,
+        20
+      ],
+      "font": null,
+      "max": 20
+    },
+    "_fonts_setup": [
+      10,
+      9,
+      10,
+      35,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare2in13bc": {
+    "width": 212,
+    "height": 104,
+    "face": [
+      0,
+      26
+    ],
+    "name": [
+      5,
+      15
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      28,
+      0
+    ],
+    "uptime": [
+      147,
+      0
+    ],
+    "line1": [
+      0,
+      12,
+      212,
+      12
+    ],
+    "line2": [
+      0,
+      92,
+      212,
+      92
+    ],
+    "friend_face": [
+      0,
+      76
+    ],
+    "friend_name": [
+      40,
+      78
+    ],
+    "shakes": [
+      0,
+      93
+    ],
+    "mode": [
+      187,
+      93
+    ],
+    "status": {
+      "pos": [
+        91,
+        15
+      ],
+      "font": null,
+      "max": 20
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      25,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare2in13d": {
+    "width": 212,
+    "height": 104,
+    "face": [
+      0,
+      26
+    ],
+    "name": [
+      5,
+      15
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      28,
+      0
+    ],
+    "uptime": [
+      147,
+      0
+    ],
+    "line1": [
+      0,
+      12,
+      212,
+      12
+    ],
+    "line2": [
+      0,
+      92,
+      212,
+      92
+    ],
+    "friend_face": [
+      0,
+      76
+    ],
+    "friend_name": [
+      40,
+      78
+    ],
+    "shakes": [
+      0,
+      93
+    ],
+    "mode": [
+      187,
+      93
+    ],
+    "status": {
+      "pos": [
+        91,
+        15
+      ],
+      "font": null,
+      "max": 20
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      25,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare2in13b_v3": {
+    "width": 250,
+    "height": 122,
+    "face": [
+      0,
+      40
+    ],
+    "name": [
+      5,
+      20
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      28,
+      0
+    ],
+    "uptime": [
+      185,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      250,
+      14
+    ],
+    "line2": [
+      0,
+      108,
+      250,
+      108
+    ],
+    "friend_face": [
+      0,
+      92
+    ],
+    "friend_name": [
+      40,
+      94
+    ],
+    "shakes": [
+      0,
+      109
+    ],
+    "mode": [
+      225,
+      109
+    ],
+    "status": {
+      "pos": [
+        125,
+        20
+      ],
+      "font": null,
+      "max": 20
+    },
+    "_fonts_setup": [
+      10,
+      9,
+      10,
+      35,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare2in13b_v4": {
+    "width": 250,
+    "height": 122,
+    "face": [
+      0,
+      40
+    ],
+    "name": [
+      5,
+      20
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      28,
+      0
+    ],
+    "uptime": [
+      185,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      250,
+      14
+    ],
+    "line2": [
+      0,
+      108,
+      250,
+      108
+    ],
+    "friend_face": [
+      0,
+      92
+    ],
+    "friend_name": [
+      40,
+      94
+    ],
+    "shakes": [
+      0,
+      109
+    ],
+    "mode": [
+      225,
+      109
+    ],
+    "status": {
+      "pos": [
+        125,
+        20
+      ],
+      "font": null,
+      "max": 20
+    },
+    "_fonts_setup": [
+      10,
+      9,
+      10,
+      35,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare2in13g": {
+    "width": 250,
+    "height": 122,
+    "face": [
+      0,
+      40
+    ],
+    "name": [
+      5,
+      20
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      28,
+      0
+    ],
+    "uptime": [
+      185,
+      0
+    ],
+    "line1": [
+      0,
+      14,
+      250,
+      14
+    ],
+    "line2": [
+      0,
+      108,
+      250,
+      108
+    ],
+    "friend_face": [
+      0,
+      92
+    ],
+    "friend_name": [
+      40,
+      94
+    ],
+    "shakes": [
+      0,
+      109
+    ],
+    "mode": [
+      225,
+      109
+    ],
+    "status": {
+      "pos": [
+        125,
+        20
+      ],
+      "font": null,
+      "max": 20
+    },
+    "_fonts_setup": [
+      10,
+      9,
+      10,
+      35,
+      25,
+      9
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare2in36g": {
+    "width": 168,
+    "height": 296,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      168,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      168,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare2in66": {
+    "width": 152,
+    "height": 296,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      152,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      152,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare2in66b": {
+    "width": 152,
+    "height": 296,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      152,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      152,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare2in66g": {
+    "width": 152,
+    "height": 296,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      152,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      152,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare3in0g": {
+    "width": 168,
+    "height": 400,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      168,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      168,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare3in7": {
+    "width": 480,
+    "height": 280,
+    "face": [
+      0,
+      34
+    ],
+    "name": [
+      35,
+      105
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      75,
+      0
+    ],
+    "uptime": [
+      377,
+      0
+    ],
+    "line1": [
+      0,
+      25,
+      480,
+      25
+    ],
+    "line2": [
+      0,
+      255,
+      480,
+      255
+    ],
+    "friend_face": [
+      0,
+      146
+    ],
+    "friend_name": [
+      40,
+      146
+    ],
+    "shakes": [
+      0,
+      258
+    ],
+    "mode": [
+      430,
+      258
+    ],
+    "status": {
+      "pos": [
+        225,
+        35
+      ],
+      "font": null,
+      "max": 21
+    },
+    "_fonts_setup": [
+      20,
+      19,
+      20,
+      45,
+      35,
+      19
+    ],
+    "_status_font_base": "Medium",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare3in52": {
+    "width": 360,
+    "height": 240,
+    "face": [
+      0,
+      85
+    ],
+    "name": [
+      10,
+      30
+    ],
+    "channel": [
+      1,
+      4
+    ],
+    "aps": [
+      45,
+      4
+    ],
+    "uptime": [
+      250,
+      4
+    ],
+    "line1": [
+      0,
+      24,
+      360,
+      24
+    ],
+    "line2": [
+      0,
+      220,
+      360,
+      220
+    ],
+    "friend_face": [
+      0,
+      180
+    ],
+    "friend_name": [
+      0,
+      170
+    ],
+    "shakes": [
+      1,
+      223
+    ],
+    "mode": [
+      320,
+      222
+    ],
+    "status": {
+      "pos": [
+        185,
+        50
+      ],
+      "font": null,
+      "max": 100
+    },
+    "_fonts_setup": [
+      16,
+      14,
+      16,
+      50,
+      31,
+      15
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare4in01f": {
+    "width": 640,
+    "height": 400,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      640,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      640,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare4in2": {
+    "width": 400,
+    "height": 300,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      400,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      400,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare4in2_v2": {
+    "width": 400,
+    "height": 300,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      400,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      400,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare4in2b_v2": {
+    "width": 400,
+    "height": 300,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      400,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      400,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare4in2bc": {
+    "width": 400,
+    "height": 300,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      400,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      400,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare4in26": {
+    "width": 800,
+    "height": 480,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      800,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      800,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare4in37g": {
+    "width": 512,
+    "height": 368,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      512,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      512,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare5in65f": {
+    "width": 600,
+    "height": 448,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      600,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      600,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare5in79": {
+    "width": 792,
+    "height": 272,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      600,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      600,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare5in79b": {
+    "width": 792,
+    "height": 272,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      600,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      600,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare5in83": {
+    "width": 600,
+    "height": 448,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      600,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      600,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare5in83_v2": {
+    "width": 648,
+    "height": 480,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      648,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      648,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare5in83b_v2": {
+    "width": 648,
+    "height": 480,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      648,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      648,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare5in83bc": {
+    "width": 600,
+    "height": 448,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      600,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      600,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare7in3f": {
+    "width": 800,
+    "height": 480,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      800,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      480,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare7in3g": {
+    "width": 800,
+    "height": 480,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      800,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      480,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare7in5": {
+    "width": 640,
+    "height": 384,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      640,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      640,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare7in5_HD": {
+    "width": 880,
+    "height": 528,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      880,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      880,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare7in5_v2": {
+    "width": 800,
+    "height": 480,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      800,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      800,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare7in5b_HD": {
+    "width": 880,
+    "height": 528,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      880,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      880,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare7in5b_v2": {
+    "width": 800,
+    "height": 480,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      800,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      800,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare7in5bc": {
+    "width": 640,
+    "height": 384,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      640,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      640,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  },
+  "waveshare13in3k": {
+    "width": 960,
+    "height": 680,
+    "face": [
+      0,
+      43
+    ],
+    "name": [
+      0,
+      14
+    ],
+    "channel": [
+      0,
+      0
+    ],
+    "aps": [
+      0,
+      71
+    ],
+    "uptime": [
+      0,
+      25
+    ],
+    "line1": [
+      0,
+      12,
+      960,
+      12
+    ],
+    "line2": [
+      0,
+      116,
+      960,
+      116
+    ],
+    "friend_face": [
+      12,
+      88
+    ],
+    "friend_name": [
+      1,
+      103
+    ],
+    "shakes": [
+      26,
+      117
+    ],
+    "mode": [
+      0,
+      117
+    ],
+    "status": {
+      "pos": [
+        65,
+        26
+      ],
+      "font": null,
+      "max": 12
+    },
+    "_fonts_setup": [
+      10,
+      8,
+      10,
+      18,
+      25,
+      9
+    ],
+    "_status_font_base": "Small",
+    "_width_literal": true,
+    "_height_literal": true
+  }
+}

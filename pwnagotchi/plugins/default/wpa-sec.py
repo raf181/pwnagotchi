@@ -34,6 +34,7 @@ class WpaSec(plugins.Plugin):
         self._init_db()
         
     def _init_db(self):
+        os.makedirs('/etc/pwnagotchi', exist_ok=True)
         db_conn = sqlite3.connect('/etc/pwnagotchi/.wpa_sec_db')
         db_conn.execute('pragma journal_mode=wal')
         with db_conn:

@@ -4,3 +4,9 @@ config-32bit
 config-64bit
 pi-gen-64bit/
 pi-gen-32bit/
+venv/
+__pycache__/
+*.egg-info/
+
+# Go build/test artifacts (go-port sources are tracked; scratch binaries are not)
+go-port/*.tmp

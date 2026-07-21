@@ -1,0 +1,83 @@
+{{define "base"}}<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#007bff" />
+    <meta name="description" content="Pwnagotchi Web Interface" />
+
+    <title>{{block "title" .}}{{end}}</title>
+
+    {{block "styles" .}}
+    <link rel="stylesheet" type="text/css" href="/css/style.css" />
+    <link rel="stylesheet" type="text/css" href="/css/theme.css" />
+    {{if eq .active_page "profile"}}
+    <link rel="stylesheet" type="text/css" href="/css/profile.css" />
+    {{else if or (eq .active_page "inbox") (eq .active_page "new")}}
+    <link rel="stylesheet" type="text/css" href="/css/inbox.css" />
+    {{else if eq .active_page "plugins"}}
+    <link rel="stylesheet" type="text/css" href="/css/plugins.css" />
+    {{end}}
+    <link rel="apple-touch-icon" href="/images/pwnagotchi.png" />
+    <link rel="icon" type="image/png" href="/images/pwnagotchi.png" />
+    {{end}}
+  </head>
+
+  <body>
+    <div class="page-container">
+      {{if .error}}
+      <script>
+        document.addEventListener("DOMContentLoaded", () => {
+          showToast({{.error}}, 5000, "error");
+        });
+      </script>
+      {{end}}
+
+      <div class="page-content">{{block "content" .}}{{end}}</div>
+
+      <footer class="page-footer">
+        <nav class="navbar">
+          <li class="navbar-item">
+            <a href="/" id="home" class="{{if eq .active_page "home"}}active{{end}}">
+              <span class="navbar-icon"></span><span>Home</span>
+            </a>
+          </li>
+          <li class="navbar-item">
+            <a href="/inbox" id="inbox" class="{{if eq .active_page "inbox"}}active{{end}}">
+              <span class="navbar-icon"></span><span>Inbox</span>
+            </a>
+          </li>
+          <li class="navbar-item">
+            <a href="/inbox/new" id="new" class="{{if eq .active_page "new"}}active{{end}}">
+              <span class="navbar-icon"></span><span>New</span>
+            </a>
+          </li>
+          <li class="navbar-item">
+            <a href="/inbox/profile" id="profile" class="{{if eq .active_page "profile"}}active{{end}}">
+              <span class="navbar-icon"></span><span>Profile</span>
+            </a>
+          </li>
+          <li class="navbar-item">
+            <a href="/inbox/peers" id="peers" class="{{if eq .active_page "peers"}}active{{end}}">
+              <span class="navbar-icon"></span><span>Peers</span>
+            </a>
+          </li>
+          <li class="navbar-item">
+            <a href="/plugins" id="plugins" class="{{if eq .active_page "plugins"}}active{{end}}">
+              <span class="navbar-icon"></span><span>Plugins</span>
+            </a>
+          </li>
+        </nav>
+      </footer>
+    </div>
+
+    {{block "scripts" .}}
+    <script src="/js/kjua.min.js"></script>
+    <script src="/js/app.js"></script>
+    <script>
+      {{block "script" .}}{{end}}
+    </script>
+    {{end}}
+  </body>
+</html>
+{{end}}

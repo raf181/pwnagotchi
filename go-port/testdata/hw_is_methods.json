@@ -1,0 +1,374 @@
+[
+  {
+    "method": "is_lcdhat",
+    "type": "lcdhat"
+  },
+  {
+    "method": "is_whisplay",
+    "type": "whisplay"
+  },
+  {
+    "method": "is_wavesharelcd0in96",
+    "type": "wavesharelcd0in96"
+  },
+  {
+    "method": "is_wavesharelcd1in3",
+    "type": "wavesharelcd1in3"
+  },
+  {
+    "method": "is_wavesharelcd1in8",
+    "type": "wavesharelcd1in8"
+  },
+  {
+    "method": "is_wavesharelcd1in9",
+    "type": "wavesharelcd1in9"
+  },
+  {
+    "method": "is_wavesharelcd1in14",
+    "type": "wavesharelcd1in14"
+  },
+  {
+    "method": "is_wavesharelcd1in28",
+    "type": "wavesharelcd1in28"
+  },
+  {
+    "method": "is_wavesharelcd1in47",
+    "type": "wavesharelcd1in47"
+  },
+  {
+    "method": "is_wavesharelcd1in54",
+    "type": "wavesharelcd1in54"
+  },
+  {
+    "method": "is_wavesharelcd1in69",
+    "type": "wavesharelcd1in69"
+  },
+  {
+    "method": "is_wavesharelcd2in0",
+    "type": "wavesharelcd2in0"
+  },
+  {
+    "method": "is_wavesharelcd2in4",
+    "type": "wavesharelcd2in4"
+  },
+  {
+    "method": "is_waveshare144lcd",
+    "type": "waveshare144lcd"
+  },
+  {
+    "method": "is_oledhat",
+    "type": "oledhat"
+  },
+  {
+    "method": "is_waveshare1in02",
+    "type": "waveshare1in02"
+  },
+  {
+    "method": "is_waveshare1in54",
+    "type": "waveshare1in54"
+  },
+  {
+    "method": "is_waveshare1in54V2",
+    "type": "waveshare1in54_v2"
+  },
+  {
+    "method": "is_waveshare1in54b",
+    "type": "waveshare1in54b"
+  },
+  {
+    "method": "is_waveshare1in54bV22",
+    "type": "waveshare1in54b_v2"
+  },
+  {
+    "method": "is_waveshare1in54c",
+    "type": "waveshare1in54c"
+  },
+  {
+    "method": "is_waveshare1in64g",
+    "type": "waveshare1in64g"
+  },
+  {
+    "method": "is_waveshare2in7",
+    "type": "waveshare2in7"
+  },
+  {
+    "method": "is_waveshare2in7V2",
+    "type": "waveshare2in7_v2"
+  },
+  {
+    "method": "is_waveshare2in9",
+    "type": "waveshare2in9"
+  },
+  {
+    "method": "is_waveshare2in9V2",
+    "type": "waveshare2in9_v2"
+  },
+  {
+    "method": "is_waveshare2in9bV3",
+    "type": "waveshare2in9b_v3"
+  },
+  {
+    "method": "is_waveshare2in9bV4",
+    "type": "waveshare2in9b_v4"
+  },
+  {
+    "method": "is_waveshare2in9bc",
+    "type": "waveshare2in9bc"
+  },
+  {
+    "method": "is_waveshare2in9d",
+    "type": "waveshare2in9d"
+  },
+  {
+    "method": "is_waveshare_v1",
+    "type": "waveshare_1"
+  },
+  {
+    "method": "is_waveshare_v2",
+    "type": "waveshare_2"
+  },
+  {
+    "method": "is_waveshare_v3",
+    "type": "waveshare_3"
+  },
+  {
+    "method": "is_waveshare_v4",
+    "type": "waveshare_4"
+  },
+  {
+    "method": "is_waveshare2in13b_v3",
+    "type": "waveshare2in13b_v3"
+  },
+  {
+    "method": "is_waveshare2in13b_v4",
+    "type": "waveshare2in13b_v4"
+  },
+  {
+    "method": "is_waveshare2in13bc",
+    "type": "waveshare2in13bc"
+  },
+  {
+    "method": "is_waveshare2in13d",
+    "type": "waveshare2in13d"
+  },
+  {
+    "method": "is_waveshare2in13g",
+    "type": "waveshare2in13g"
+  },
+  {
+    "method": "is_waveshare2in36g",
+    "type": "waveshare2in36g"
+  },
+  {
+    "method": "is_waveshare2in66",
+    "type": "waveshare2in66"
+  },
+  {
+    "method": "is_waveshare2in66b",
+    "type": "waveshare2in66b"
+  },
+  {
+    "method": "is_waveshare2in66g",
+    "type": "waveshare2in66g"
+  },
+  {
+    "method": "is_weact2in9",
+    "type": "weact2in9"
+  },
+  {
+    "method": "is_waveshare3in0g",
+    "type": "waveshare3in0g"
+  },
+  {
+    "method": "is_waveshare3in7",
+    "type": "waveshare3in7"
+  },
+  {
+    "method": "is_waveshare3in52",
+    "type": "waveshare3in52"
+  },
+  {
+    "method": "is_waveshare4in01f",
+    "type": "waveshare4in01f"
+  },
+  {
+    "method": "is_waveshare4in2",
+    "type": "waveshare4in2"
+  },
+  {
+    "method": "is_waveshare4in2V2",
+    "type": "waveshare4in2_v2"
+  },
+  {
+    "method": "is_waveshare4in2bV2",
+    "type": "waveshare4in2b_v2"
+  },
+  {
+    "method": "is_waveshare4in2bc",
+    "type": "waveshare4in2bc"
+  },
+  {
+    "method": "is_waveshare4in26",
+    "type": "waveshare4in26"
+  },
+  {
+    "method": "is_waveshare4in37g",
+    "type": "waveshare4in37g"
+  },
+  {
+    "method": "is_waveshare5in65f",
+    "type": "waveshare5in65f"
+  },
+  {
+    "method": "is_waveshare5in79",
+    "type": "waveshare5in79"
+  },
+  {
+    "method": "is_waveshare5in79b",
+    "type": "waveshare5in79b"
+  },
+  {
+    "method": "is_waveshare5in83",
+    "type": "waveshare5in83"
+  },
+  {
+    "method": "is_waveshare5in83V2",
+    "type": "waveshare5in83_v2"
+  },
+  {
+    "method": "is_waveshare5in83bV2",
+    "type": "waveshare5in83b_v2"
+  },
+  {
+    "method": "is_waveshare5in83bc",
+    "type": "waveshare5in83bc"
+  },
+  {
+    "method": "is_waveshare7in3f",
+    "type": "waveshare7in3f"
+  },
+  {
+    "method": "is_waveshare7in3g",
+    "type": "waveshare7in3g"
+  },
+  {
+    "method": "is_waveshare7in5",
+    "type": "waveshare7in5"
+  },
+  {
+    "method": "is_waveshare7in5HD",
+    "type": "waveshare7in5_HD"
+  },
+  {
+    "method": "is_waveshare7in5V2",
+    "type": "waveshare7in5_v2"
+  },
+  {
+    "method": "is_waveshare7in5bHD",
+    "type": "waveshare7in5b_HD"
+  },
+  {
+    "method": "is_waveshare7in5bV2",
+    "type": "waveshare7in5b_v2"
+  },
+  {
+    "method": "is_waveshare7in5bc",
+    "type": "waveshare7in5bc"
+  },
+  {
+    "method": "is_waveshare13in3k",
+    "type": "waveshare13in3k"
+  },
+  {
+    "method": "is_inky",
+    "type": "inky"
+  },
+  {
+    "method": "is_inkyv2",
+    "type": "inkyv2"
+  },
+  {
+    "method": "is_dummy_display",
+    "type": "dummydisplay"
+  },
+  {
+    "method": "is_papirus",
+    "type": "papirus"
+  },
+  {
+    "method": "is_dfrobot_v1",
+    "type": "dfrobot_v1"
+  },
+  {
+    "method": "is_dfrobot_v2",
+    "type": "dfrobot_v2"
+  },
+  {
+    "method": "is_spotpear24inch",
+    "type": "spotpear24inch"
+  },
+  {
+    "method": "is_spotpear154lcd",
+    "type": "spotpear154lcd"
+  },
+  {
+    "method": "is_displayhatmini",
+    "type": "displayhatmini"
+  },
+  {
+    "method": "is_gamepi20",
+    "type": "gamepi20"
+  },
+  {
+    "method": "is_gamepi15",
+    "type": "gamepi15"
+  },
+  {
+    "method": "is_pirateaudio",
+    "type": "pirateaudio"
+  },
+  {
+    "method": "gfxhat",
+    "type": "gfxhat"
+  },
+  {
+    "method": "is_argonpod",
+    "type": "argonpod"
+  },
+  {
+    "method": "is_pitft",
+    "type": "pitft"
+  },
+  {
+    "method": "is_minipitft",
+    "type": "minipitft"
+  },
+  {
+    "method": "is_minipitft2",
+    "type": "minipitft2"
+  },
+  {
+    "method": "is_tftbonnet",
+    "type": "tftbonnet"
+  },
+  {
+    "method": "is_waveshareoledlcd",
+    "type": "waveshareoledlcd"
+  },
+  {
+    "method": "is_waveshareoledlcdvert",
+    "type": "waveshareoledlcdvert"
+  },
+  {
+    "method": "is_i2coled",
+    "type": "i2coled"
+  },
+  {
+    "method": "is_waveshare35lcd",
+    "type": "waveshare35lcd"
+  },
+  {
+    "method": "is_adfruit213v3",
+    "type": "adafruit2in13_v3"
+  }
+]

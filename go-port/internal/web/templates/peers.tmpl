@@ -1,0 +1,22 @@
+{{define "title"}}{{.name}} Peers{{end}}
+{{define "script"}}filterList('.search-box input', '.peers li');{{end}}
+{{define "content"}}
+<div class="search-box">
+  <input type="text" placeholder="Search peers..." />
+</div>
+
+<ul class="peers">
+  {{range .peers}}
+  <li class="peer">
+    <a href="/inbox/new?to={{.fingerprint}}">
+      <div class="list-item-primary">
+        {{.advertisement_face}} {{.advertisement_name}}@{{.fingerprint}}
+      </div>
+      <div class="list-item-secondary">
+        Pwned {{.advertisement_pwnd_tot}} networks, {{.encounters}} encounters
+      </div>
+    </a>
+  </li>
+  {{end}}
+</ul>
+{{end}}

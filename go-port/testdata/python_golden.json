@@ -1,0 +1,203 @@
+{
+  "NumChannels": 233,
+  "freq_to_channel": [
+    {
+      "in": 2412,
+      "out": 1
+    },
+    {
+      "in": 2437,
+      "out": 6
+    },
+    {
+      "in": 2472,
+      "out": 13
+    },
+    {
+      "in": 2484,
+      "out": 14
+    },
+    {
+      "in": 5180,
+      "out": 36
+    },
+    {
+      "in": 5320,
+      "out": 43
+    },
+    {
+      "in": 5500,
+      "out": 100
+    },
+    {
+      "in": 5745,
+      "out": 149
+    },
+    {
+      "in": 5825,
+      "out": 153
+    },
+    {
+      "in": 5950,
+      "out": 11
+    },
+    {
+      "in": 7115,
+      "out": 69
+    }
+  ],
+  "freq_to_channel_invalid": [
+    {
+      "error": "The frequency 0 MHz is not a valid Wi-Fi frequency.",
+      "in": 0
+    },
+    {
+      "error": "The frequency 100 MHz is not a valid Wi-Fi frequency.",
+      "in": 100
+    },
+    {
+      "error": "The frequency 3000 MHz is not a valid Wi-Fi frequency.",
+      "in": 3000
+    },
+    {
+      "error": "The frequency 8000 MHz is not a valid Wi-Fi frequency.",
+      "in": 8000
+    }
+  ],
+  "merge_config": [
+    {
+      "default": {
+        "a": 2,
+        "b": 3
+      },
+      "out": {
+        "a": 1,
+        "b": 3
+      },
+      "user": {
+        "a": 1
+      }
+    },
+    {
+      "default": {
+        "a": 1,
+        "b": {
+          "c": 2
+        }
+      },
+      "out": {
+        "a": 1,
+        "b": {
+          "c": 2
+        }
+      },
+      "user": {}
+    },
+    {
+      "default": {
+        "a": 1,
+        "b": {
+          "c": 2,
+          "d": 99
+        }
+      },
+      "out": {
+        "a": 1,
+        "b": {
+          "c": 2,
+          "d": 4
+        }
+      },
+      "user": {
+        "b": {
+          "d": 4
+        }
+      }
+    },
+    {
+      "default": {
+        "list": [
+          3,
+          4
+        ],
+        "other": 5
+      },
+      "out": {
+        "list": [
+          1,
+          2
+        ],
+        "other": 5
+      },
+      "user": {
+        "list": [
+          1,
+          2
+        ]
+      }
+    }
+  ],
+  "parse_version": [
+    {
+      "in": "2.9.5.5",
+      "out": [
+        "2",
+        "9",
+        "5",
+        "5"
+      ]
+    },
+    {
+      "in": "1.0",
+      "out": [
+        "1",
+        "0"
+      ]
+    },
+    {
+      "in": "10.20.30",
+      "out": [
+        "10",
+        "20",
+        "30"
+      ]
+    }
+  ],
+  "remove_whitelisted": {
+    "in": [
+      "/path/to/EXAMPLE_NETWORK_somehash.pcap",
+      "/path/to/fo-od-ba-be-fo-od_x.pcap",
+      "/path/to/unrelated_ssid.pcap"
+    ],
+    "out": [
+      "/path/to/unrelated_ssid.pcap"
+    ],
+    "whitelist": [
+      "EXAMPLE_NETWORK",
+      "fo:od:ba:be:fo:od",
+      "fo:od:ba"
+    ]
+  },
+  "secs_to_hhmmss": [
+    {
+      "in": 0,
+      "out": "00:00:00"
+    },
+    {
+      "in": 59,
+      "out": "00:00:59"
+    },
+    {
+      "in": 61,
+      "out": "00:01:01"
+    },
+    {
+      "in": 3661,
+      "out": "01:01:01"
+    },
+    {
+      "in": 90061,
+      "out": "25:01:01"
+    }
+  ]
+}

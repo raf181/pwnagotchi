@@ -1,33 +1,38 @@
-# Pwnagotchi
-This is the main source for all forks:
-- RPiZeroW (32bit)
-- RPiZero2W, RPi3, RPi4, RPi5 (64bit)
+# Pwnagotchi (Go)
 
-**For installation docs check out the [wiki](https://github.com/jayofelony/pwnagotchi/wiki)!**
+The primary implementation of this project is now the Go port in
+[`go-port/`](go-port/). Start there for building, running, and
+architecture docs — see `go-port/README.md` and `go-port/docs/` (feature
+matrix, known differences, final port report).
 
-If you want to sponsor this project you can use GH Sponsor or cryptocurrency:
+The original Python daemon (`pwnagotchi/`) is kept only as:
+- the bundled/custom **plugin runtime** — `go-port/internal/pyplugin` runs
+  the real, unmodified plugin files under `pwnagotchi/plugins/default/`
+  in a real Python subprocess, since bundled plugins depend on real
+  Python-only libraries (RPi.GPIO, dbus, Flask, requests, ...) that can't
+  be reimplemented in Go without losing compatibility;
+- the **behavioral oracle** the Go port's differential tests
+  (`go-port/tests/compat_*_test.go`, `make -C go-port compatibility-test`)
+  diff against, and the reference venv (`venv/`) those tests and the
+  plugin bridge run against.
 
-[GH Sponsor](https://github.com/sponsors/jayofelony)
+It is not run directly as the daemon anymore and is not the place to add
+new features — changes belong in `go-port/`.
 
-Or send some ethereum: 0x33ceC4Abe80fDE460a924d596d4dE31Bc0767bb6
-
-**Proudly partnering with [PiSugar](https://www.pisugar.com)!!**
-
----
-
-[Pwnagotchi](https://pwnagotchi.org/) is a Raspberry Pi leveraging [bettercap](https://www.bettercap.org/) that survives from its surrounding Wi-Fi environment to maximize the crackable WPA key material it captures (either passively, or by performing authentication and association attacks). This material is collected as PCAP files containing any form of handshake supported by [hashcat](https://hashcat.net/hashcat/), including [PMKIDs](https://www.evilsocket.net/2019/02/13/Pwning-WiFi-networks-with-bettercap-and-the-PMKID-client-less-attack/), 
+[Pwnagotchi](https://pwnagotchi.org/) is a Raspberry Pi leveraging
+[bettercap](https://www.bettercap.org/) that survives from its
+surrounding Wi-Fi environment to maximize the crackable WPA key material
+it captures (either passively, or by performing authentication and
+association attacks). This material is collected as PCAP files containing
+any form of handshake supported by [hashcat](https://hashcat.net/hashcat/),
+including [PMKIDs](https://www.evilsocket.net/2019/02/13/Pwning-WiFi-networks-with-bettercap-and-the-PMKID-client-less-attack/),
 full and half WPA handshakes.
 
-![ui](https://i.imgur.com/X68GXrn.png)
-
-The "old" Pwnagotchi used to have AI to help it learn from its environment, but since then AI seemed to destabilize the Wi-Fi firmware. So I have chosen to remove the AI completely to give the Pwnagotchi more up-time and longer battery life when taking it on a walk.
-
-Multiple units within close physical proximity can "talk" to each other, advertising their presence to each other by broadcasting custom information elements using a parasite protocol [@evilsocket](https://x.com/evilsocket) built on top of the existing dot11 standard.
-
-## Documentation
-
-https://github.com/jayofelony/pwnagotchi/wiki 
-https://pwnagotchi.org
+Multiple units within close physical proximity can "talk" to each other,
+advertising their presence to each other by broadcasting custom
+information elements using a parasite protocol
+[@evilsocket](https://x.com/evilsocket) built on top of the existing
+dot11 standard.
 
 ## Links
 
@@ -39,4 +44,6 @@ https://pwnagotchi.org
 
 ## License
 
-`pwnagotchi` created by [@evilsocket](https://x.com/evilsocket) and updated by [us](https://github.com/jayofelony/pwnagotchi/graphs/contributors). It is released under the GPL3 license.
+`pwnagotchi` created by [@evilsocket](https://x.com/evilsocket) and
+updated by [us](https://github.com/jayofelony/pwnagotchi/graphs/contributors).
+It is released under the GPL3 license.

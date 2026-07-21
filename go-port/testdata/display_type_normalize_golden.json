@@ -1,0 +1,334 @@
+[
+  {
+    "in": "dummy",
+    "out": "dummydisplay"
+  },
+  {
+    "in": "dummydisplay",
+    "out": "dummydisplay"
+  },
+  {
+    "in": "whisplay",
+    "out": "whisplay"
+  },
+  {
+    "in": "his",
+    "out": "whisplay"
+  },
+  {
+    "in": "",
+    "out": "whisplay"
+  },
+  {
+    "in": "wavesharelcd0in96",
+    "out": "wavesharelcd0in96"
+  },
+  {
+    "in": "ws4",
+    "out": "waveshare_4"
+  },
+  {
+    "in": "waveshare_4",
+    "out": "waveshare_4"
+  },
+  {
+    "in": "oledhat",
+    "out": "oledhat"
+  },
+  {
+    "in": "hat",
+    "out": "oledhat"
+  },
+  {
+    "in": "lcdhat",
+    "out": "lcdhat"
+  },
+  {
+    "in": "cdha",
+    "out": "lcdhat"
+  },
+  {
+    "in": "spotpear24inch",
+    "out": "spotpear24inch"
+  },
+  {
+    "in": "spotpear154lcd",
+    "out": "spotpear154lcd"
+  },
+  {
+    "in": "displayhatmini",
+    "out": "displayhatmini"
+  },
+  {
+    "in": "pirateaudio",
+    "out": "pirateaudio"
+  },
+  {
+    "in": "gfxhat",
+    "out": "gfxhat"
+  },
+  {
+    "in": "pitft",
+    "out": "pitft"
+  },
+  {
+    "in": "argonpod",
+    "out": "argonpod"
+  },
+  {
+    "in": "minipitft",
+    "out": "minipitft"
+  },
+  {
+    "in": "minipitft2",
+    "out": "minipitft2"
+  },
+  {
+    "in": "tftbonnet",
+    "out": "tftbonnet"
+  },
+  {
+    "in": "waveshareoledlcd",
+    "out": "waveshareoledlcd"
+  },
+  {
+    "in": "i2coled",
+    "out": "i2coled"
+  },
+  {
+    "in": "waveshare35lcd",
+    "out": "waveshare35lcd"
+  },
+  {
+    "in": "waveshareoledlcdvert",
+    "out": "waveshareoledlcdvert"
+  },
+  {
+    "in": "gamepi20",
+    "out": "gamepi20"
+  },
+  {
+    "in": "gamepi15",
+    "out": "gamepi15"
+  },
+  {
+    "in": "totally_unknown_display",
+    "out": "dummydisplay"
+  },
+  {
+    "in": "weact2in9",
+    "out": "weact2in9"
+  },
+  {
+    "in": "waveshare13in3k",
+    "out": "waveshare13in3k"
+  },
+  {
+    "in": "adafruit2in13_v3",
+    "out": "adafruit2in13_v3"
+  },
+  {
+    "in": "af213v3",
+    "out": "adafruit2in13_v3"
+  },
+  {
+    "in": "waveshare2in13",
+    "out": "waveshare_1"
+  },
+  {
+    "in": "waveshare2in13v2",
+    "out": "waveshare_2"
+  },
+  {
+    "in": "waveshare2in13v3",
+    "out": "waveshare_3"
+  },
+  {
+    "in": "waveshare2in13v4",
+    "out": "waveshare_4"
+  },
+  {
+    "in": "ws213bv3",
+    "out": "waveshare2in13b_v3"
+  },
+  {
+    "in": "ws_213bv4",
+    "out": "waveshare2in13b_v4"
+  },
+  {
+    "in": "ws213bc",
+    "out": "waveshare2in13bc"
+  },
+  {
+    "in": "ws213d",
+    "out": "waveshare2in13d"
+  },
+  {
+    "in": "ws213g",
+    "out": "waveshare2in13g"
+  },
+  {
+    "in": "ws236g",
+    "out": "waveshare2in36g"
+  },
+  {
+    "in": "ws266",
+    "out": "waveshare2in66"
+  },
+  {
+    "in": "ws266b",
+    "out": "waveshare2in66b"
+  },
+  {
+    "in": "ws266g",
+    "out": "waveshare2in66g"
+  },
+  {
+    "in": "ws27inch",
+    "out": "waveshare2in7"
+  },
+  {
+    "in": "ws27inchv2",
+    "out": "waveshare2in7_v2"
+  },
+  {
+    "in": "ws27inchbv2",
+    "out": "waveshare2in7b_v2"
+  },
+  {
+    "in": "ws29inch",
+    "out": "waveshare2in9"
+  },
+  {
+    "in": "ws2in9bc",
+    "out": "waveshare2in9bc"
+  },
+  {
+    "in": "ws2in9d",
+    "out": "waveshare2in9d"
+  },
+  {
+    "in": "ws2in9v2",
+    "out": "waveshare2in9_v2"
+  },
+  {
+    "in": "ws2in9bv3",
+    "out": "waveshare2in9b_v3"
+  },
+  {
+    "in": "ws2in9bv4",
+    "out": "waveshare2in9b_v4"
+  },
+  {
+    "in": "ws3in0g",
+    "out": "waveshare3in0g"
+  },
+  {
+    "in": "ws3in7",
+    "out": "waveshare3in7"
+  },
+  {
+    "in": "ws3in52",
+    "out": "waveshare3in52"
+  },
+  {
+    "in": "ws4in01f",
+    "out": "waveshare4in01f"
+  },
+  {
+    "in": "ws4in2",
+    "out": "waveshare4in2"
+  },
+  {
+    "in": "ws4in2v2",
+    "out": "waveshare4in2_v2"
+  },
+  {
+    "in": "ws4in2bv2",
+    "out": "waveshare4in2b_v2"
+  },
+  {
+    "in": "ws4in2bc",
+    "out": "waveshare4in2bc"
+  },
+  {
+    "in": "ws4in26",
+    "out": "waveshare4in26"
+  },
+  {
+    "in": "ws4in37g",
+    "out": "waveshare4in37g"
+  },
+  {
+    "in": "ws5in65f",
+    "out": "waveshare5in65f"
+  },
+  {
+    "in": "ws5in79",
+    "out": "waveshare5in79"
+  },
+  {
+    "in": "ws5in79b",
+    "out": "waveshare5in79b"
+  },
+  {
+    "in": "ws5in83",
+    "out": "waveshare5in83"
+  },
+  {
+    "in": "ws5in83v2",
+    "out": "waveshare5in83_v2"
+  },
+  {
+    "in": "ws5in83bv2",
+    "out": "waveshare5in83b_v2"
+  },
+  {
+    "in": "ws5in83bc",
+    "out": "waveshare5in83bc"
+  },
+  {
+    "in": "ws7in3f",
+    "out": "waveshare7in3f"
+  },
+  {
+    "in": "ws7in3g",
+    "out": "waveshare7in3g"
+  },
+  {
+    "in": "ws7in5",
+    "out": "waveshare7in5"
+  },
+  {
+    "in": "ws7in5hd",
+    "out": "waveshare7in5_HD"
+  },
+  {
+    "in": "ws7in5v2",
+    "out": "waveshare7in5_v2"
+  },
+  {
+    "in": "ws7in5bhd",
+    "out": "waveshare7in5b_HD"
+  },
+  {
+    "in": "ws7in5bv2",
+    "out": "waveshare7in5b_v2"
+  },
+  {
+    "in": "ws7in5bc",
+    "out": "waveshare7in5bc"
+  },
+  {
+    "in": "waveshare1in02",
+    "out": "waveshare1in02"
+  },
+  {
+    "in": "ws1in02",
+    "out": "waveshare1in02"
+  },
+  {
+    "in": "ws_154inch",
+    "out": "waveshare1in54"
+  }
+]

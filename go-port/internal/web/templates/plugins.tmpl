@@ -1,0 +1,64 @@
+{{define "title"}}Plugins{{end}}
+{{define "content"}}
+<div id="container">
+  {{range .plugin_rows}}
+  <div class="plugins-box">
+    <div class="tooltip">
+      <div class="plugin-header">
+        <h4>
+          {{if .HasWebhook}}
+          <a href="/plugins/{{.Name}}">{{.Name}}</a>
+          {{else}}{{.Name}}{{end}}
+        </h4>
+        {{if .Version}}
+        <span class="badge version">{{.Version}}</span>
+        {{end}}
+      </div>
+      <div class="author">
+        {{if .Author}}{{.Author}}{{end}}
+      </div>
+      <div class="plugin-badges">
+        {{if .IsDefault}}
+        <span class="badge default">DEFAULT</span>
+        {{end}}
+      </div>
+      {{if .HasInfo}}
+      <span class="tooltiptext">{{.Description}}</span>
+      {{else}}
+      <span class="tooltiptext">Description unable to load yet.</span>
+      {{end}}
+    </div>
+    <div>
+      <form method="POST" action="/plugins/toggle" class="plugin-toggle">
+        <label class="switch">
+          <input
+            type="checkbox"
+            name="enabled"
+            id="flip-checkbox-{{.Name}}"
+            {{if .Loaded}}checked{{end}}
+          />
+          <span class="slider"></span>
+        </label>
+        <input type="hidden" name="csrf_token" value="{{$.csrf_token}}" />
+        <input type="hidden" name="plugin" value="{{.Name}}" />
+      </form>
+      <form method="POST" action="/plugins/upgrade">
+        <button type="submit" name="upgrade" class="btn primary plugin-upgrade-btn">
+          Upgrade Plugin
+        </button>
+        <input type="hidden" name="csrf_token" value="{{$.csrf_token}}" />
+        <input type="hidden" name="plugin" value="{{.Name}}" />
+      </form>
+    </div>
+  </div>
+  {{end}}
+</div>
+{{end}}
+{{define "scripts"}}
+<script src="/js/kjua.min.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/plugins.js"></script>
+<script>
+  {{block "script" .}}{{end}}
+</script>
+{{end}}

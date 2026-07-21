@@ -1,0 +1,472 @@
+[
+  {
+    "type": "inky",
+    "module": "inky",
+    "class": "Inky"
+  },
+  {
+    "type": "whisplay",
+    "module": "whisplay",
+    "class": "Whisplay"
+  },
+  {
+    "type": "inkyv2",
+    "module": "inkyv2",
+    "class": "InkyV2"
+  },
+  {
+    "type": "wavesharelcd0in96",
+    "module": "wavesharelcd0in96",
+    "class": "Wavesharelcd0in96"
+  },
+  {
+    "type": "wavesharelcd1in3",
+    "module": "wavesharelcd1in3",
+    "class": "Wavesharelcd1in3"
+  },
+  {
+    "type": "wavesharelcd1in8",
+    "module": "wavesharelcd1in8",
+    "class": "Wavesharelcd1in8"
+  },
+  {
+    "type": "wavesharelcd1in9",
+    "module": "wavesharelcd1in9",
+    "class": "Wavesharelcd1in9"
+  },
+  {
+    "type": "wavesharelcd1in14",
+    "module": "wavesharelcd1in14",
+    "class": "Wavesharelcd1in14"
+  },
+  {
+    "type": "wavesharelcd1in28",
+    "module": "wavesharelcd1in28",
+    "class": "Wavesharelcd1in28"
+  },
+  {
+    "type": "wavesharelcd1in47",
+    "module": "wavesharelcd1in47",
+    "class": "Wavesharelcd1in47"
+  },
+  {
+    "type": "wavesharelcd1in54",
+    "module": "wavesharelcd1in54",
+    "class": "Wavesharelcd1in54"
+  },
+  {
+    "type": "wavesharelcd1in69",
+    "module": "wavesharelcd1in69",
+    "class": "Wavesharelcd1in69"
+  },
+  {
+    "type": "wavesharelcd2in0",
+    "module": "wavesharelcd2in0",
+    "class": "Wavesharelcd2in0"
+  },
+  {
+    "type": "wavesharelcd2in4",
+    "module": "wavesharelcd2in4",
+    "class": "Wavesharelcd2in4"
+  },
+  {
+    "type": "dummydisplay",
+    "module": "dummydisplay",
+    "class": "DummyDisplay"
+  },
+  {
+    "type": "papirus",
+    "module": "papirus",
+    "class": "Papirus"
+  },
+  {
+    "type": "oledhat",
+    "module": "oledhat",
+    "class": "OledHat"
+  },
+  {
+    "type": "lcdhat",
+    "module": "lcdhat",
+    "class": "LcdHat"
+  },
+  {
+    "type": "dfrobot_1",
+    "module": "dfrobot",
+    "class": "DFRobotV1"
+  },
+  {
+    "type": "dfrobot_2",
+    "module": "dfrobot_v2",
+    "class": "DFRobotV2"
+  },
+  {
+    "type": "waveshare144lcd",
+    "module": "waveshare1in44lcd",
+    "class": "Waveshare144lcd"
+  },
+  {
+    "type": "waveshare35lcd",
+    "module": "waveshare3in5lcd",
+    "class": "Waveshare35lcd"
+  },
+  {
+    "type": "spotpear24inch",
+    "module": "spotpear24in",
+    "class": "Spotpear24inch"
+  },
+  {
+    "type": "spotpear154lcd",
+    "module": "spotpear154lcd",
+    "class": "Spotpear154lcd"
+  },
+  {
+    "type": "displayhatmini",
+    "module": "displayhatmini",
+    "class": "DisplayHatMini"
+  },
+  {
+    "type": "pirateaudio",
+    "module": "pirateaudio",
+    "class": "PirateAudio"
+  },
+  {
+    "type": "gfxhat",
+    "module": "gfxhat",
+    "class": "GfxHat"
+  },
+  {
+    "type": "argonpod",
+    "module": "argonpod",
+    "class": "ArgonPod"
+  },
+  {
+    "type": "pitft",
+    "module": "pitft",
+    "class": "Pitft"
+  },
+  {
+    "type": "gamepi15",
+    "module": "gamepi15",
+    "class": "GamePi15"
+  },
+  {
+    "type": "gamepi20",
+    "module": "gamepi20",
+    "class": "GamePi20"
+  },
+  {
+    "type": "minipitft",
+    "module": "minipitft",
+    "class": "MiniPitft"
+  },
+  {
+    "type": "minipitft2",
+    "module": "minipitft2",
+    "class": "MiniPitft2"
+  },
+  {
+    "type": "tftbonnet",
+    "module": "tftbonnet",
+    "class": "TftBonnet"
+  },
+  {
+    "type": "waveshareoledlcd",
+    "module": "waveshareoledlcd",
+    "class": "Waveshareoledlcd"
+  },
+  {
+    "type": "waveshareoledlcdvert",
+    "module": "waveshareoledlcdvert",
+    "class": "Waveshareoledlcdvert"
+  },
+  {
+    "type": "i2coled",
+    "module": "i2coled",
+    "class": "I2COled"
+  },
+  {
+    "type": "waveshare1in02",
+    "module": "waveshare1in02",
+    "class": "Waveshare1in02"
+  },
+  {
+    "type": "waveshare1in54",
+    "module": "waveshare1in54",
+    "class": "Waveshare154"
+  },
+  {
+    "type": "waveshare1in54_v2",
+    "module": "waveshare1in54_V2",
+    "class": "Waveshare154V2"
+  },
+  {
+    "type": "waveshare1in54b",
+    "module": "waveshare1in54b",
+    "class": "Waveshare154inchb"
+  },
+  {
+    "type": "waveshare1in54b_v2",
+    "module": "waveshare1in54b_V2",
+    "class": "Waveshare154bV2"
+  },
+  {
+    "type": "waveshare1in54c",
+    "module": "waveshare1in54c",
+    "class": "Waveshare1in54c"
+  },
+  {
+    "type": "waveshare1in64g",
+    "module": "waveshare1in64g",
+    "class": "Waveshare1in64g"
+  },
+  {
+    "type": "waveshare2in7",
+    "module": "waveshare2in7",
+    "class": "Waveshare27inch"
+  },
+  {
+    "type": "waveshare2in7_v2",
+    "module": "waveshare2in7_V2",
+    "class": "Waveshare27inchV2"
+  },
+  {
+    "type": "waveshare2in7b",
+    "module": "waveshare2in7b",
+    "class": "Waveshare27b"
+  },
+  {
+    "type": "waveshare2in7b_v2",
+    "module": "waveshare2in7b_V2",
+    "class": "Waveshare27bV2"
+  },
+  {
+    "type": "waveshare2in9",
+    "module": "waveshare2in9",
+    "class": "Waveshare29inch"
+  },
+  {
+    "type": "waveshare2in9bc",
+    "module": "waveshare2in9bc",
+    "class": "Waveshare2in9bc"
+  },
+  {
+    "type": "waveshare2in9d",
+    "module": "waveshare2in9d",
+    "class": "Waveshare2in9d"
+  },
+  {
+    "type": "waveshare2in9_v2",
+    "module": "waveshare2in9_V2",
+    "class": "Waveshare29inchV2"
+  },
+  {
+    "type": "waveshare2in9b_v3",
+    "module": "waveshare2in9b_V3",
+    "class": "Waveshare29bV3"
+  },
+  {
+    "type": "waveshare2in9b_v4",
+    "module": "waveshare2in9b_V4",
+    "class": "Waveshare29bV4"
+  },
+  {
+    "type": "waveshare_1",
+    "module": "waveshare2in13",
+    "class": "WaveshareV1"
+  },
+  {
+    "type": "waveshare_2",
+    "module": "waveshare2in13_V2",
+    "class": "WaveshareV2"
+  },
+  {
+    "type": "waveshare_3",
+    "module": "waveshare2in13_V3",
+    "class": "WaveshareV3"
+  },
+  {
+    "type": "waveshare_4",
+    "module": "waveshare2in13_V4",
+    "class": "WaveshareV4"
+  },
+  {
+    "type": "adafruit2in13_v3",
+    "module": "adafruit2in13",
+    "class": "Adafruit2in13V3"
+  },
+  {
+    "type": "waveshare2in13bc",
+    "module": "waveshare2in13bc",
+    "class": "Waveshare213bc"
+  },
+  {
+    "type": "waveshare2in13d",
+    "module": "waveshare2in13d",
+    "class": "Waveshare213d"
+  },
+  {
+    "type": "waveshare2in13b_v3",
+    "module": "waveshare2in13b_V3",
+    "class": "Waveshare2in13bV3"
+  },
+  {
+    "type": "waveshare2in13b_v4",
+    "module": "waveshare2in13b_V4",
+    "class": "Waveshare213bV4"
+  },
+  {
+    "type": "waveshare2in13g",
+    "module": "waveshare2in13g",
+    "class": "Waveshare2in13g"
+  },
+  {
+    "type": "waveshare2in36g",
+    "module": "waveshare2in36g",
+    "class": "Waveshare2in36g"
+  },
+  {
+    "type": "waveshare2in66",
+    "module": "waveshare2in66",
+    "class": "Waveshare2in66"
+  },
+  {
+    "type": "waveshare2in66b",
+    "module": "waveshare2in66b",
+    "class": "Waveshare2in66b"
+  },
+  {
+    "type": "waveshare2in66g",
+    "module": "waveshare2in66g",
+    "class": "Waveshare2in66g"
+  },
+  {
+    "type": "waveshare3in0g",
+    "module": "waveshare3in0g",
+    "class": "Waveshare3in0g"
+  },
+  {
+    "type": "waveshare3in7",
+    "module": "waveshare3in7",
+    "class": "Waveshare3in7"
+  },
+  {
+    "type": "waveshare3in52",
+    "module": "waveshare3in52",
+    "class": "Waveshare3in52"
+  },
+  {
+    "type": "waveshare4in01f",
+    "module": "waveshare4in01f",
+    "class": "Waveshare4in01f"
+  },
+  {
+    "type": "waveshare4in2",
+    "module": "waveshare4in2",
+    "class": "Waveshare4in2"
+  },
+  {
+    "type": "waveshare4in2_v2",
+    "module": "waveshare4in2_V2",
+    "class": "Waveshare4in2V2"
+  },
+  {
+    "type": "waveshare4in2b_v2",
+    "module": "waveshare4in2b_V2",
+    "class": "Waveshare4in2bV2"
+  },
+  {
+    "type": "waveshare4in2bc",
+    "module": "waveshare4in2bc",
+    "class": "Waveshare4in2bc"
+  },
+  {
+    "type": "waveshare4in26",
+    "module": "waveshare4in26",
+    "class": "Waveshare4in26"
+  },
+  {
+    "type": "waveshare4in37g",
+    "module": "waveshare4in37g",
+    "class": "Waveshare4in37g"
+  },
+  {
+    "type": "waveshare5in65f",
+    "module": "waveshare5in65f",
+    "class": "Waveshare5in65f"
+  },
+  {
+    "type": "waveshare5in79",
+    "module": "waveshare5in79",
+    "class": "Waveshare5in79"
+  },
+  {
+    "type": "waveshare5in79b",
+    "module": "waveshare5in79b",
+    "class": "Waveshare5in79b"
+  },
+  {
+    "type": "waveshare5in83",
+    "module": "waveshare5in83",
+    "class": "Waveshare5in83"
+  },
+  {
+    "type": "waveshare5in83_v2",
+    "module": "waveshare5in83_V2",
+    "class": "Waveshare5in83V2"
+  },
+  {
+    "type": "waveshare5in83b_v2",
+    "module": "waveshare5in83b_V2",
+    "class": "Waveshare5in83bV2"
+  },
+  {
+    "type": "waveshare5in83bc",
+    "module": "waveshare5in83bc",
+    "class": "Waveshare5in83bc"
+  },
+  {
+    "type": "waveshare7in3f",
+    "module": "waveshare7in3f",
+    "class": "Waveshare7in3f"
+  },
+  {
+    "type": "waveshare7in3g",
+    "module": "waveshare7in3g",
+    "class": "Waveshare7in3g"
+  },
+  {
+    "type": "waveshare7in5",
+    "module": "waveshare7in5",
+    "class": "Waveshare7in5"
+  },
+  {
+    "type": "waveshare7in5_HD",
+    "module": "waveshare7in5_HD",
+    "class": "Waveshare7in5HD"
+  },
+  {
+    "type": "waveshare7in5_v2",
+    "module": "waveshare7in5_V2",
+    "class": "Waveshare7in5V2"
+  },
+  {
+    "type": "waveshare7in5b_HD",
+    "module": "waveshare7in5b_HD",
+    "class": "Waveshare7in5bHD"
+  },
+  {
+    "type": "waveshare7in5b_v2",
+    "module": "waveshare7in5b_V2",
+    "class": "Waveshare7in5bV2"
+  },
+  {
+    "type": "waveshare7in5bc",
+    "module": "waveshare7in5bc",
+    "class": "Waveshare7in5bc"
+  },
+  {
+    "type": "waveshare13in3k",
+    "module": "waveshare13in3k",
+    "class": "Waveshare13in3k"
+  }
+]

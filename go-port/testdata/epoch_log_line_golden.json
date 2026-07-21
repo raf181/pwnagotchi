@@ -1,0 +1,50 @@
+[
+  {
+    "in": {
+      "epoch": 0,
+      "duration": 12.5,
+      "slept": 3.9,
+      "blind": 1,
+      "sad": 0,
+      "bored": 2,
+      "inactive": 3,
+      "active": 0,
+      "peers": 2,
+      "tot_bond": 1.005,
+      "avg_bond": 0.5025,
+      "hops": 5,
+      "missed": 1,
+      "deauths": 2,
+      "assocs": 3,
+      "shakes": 1,
+      "cpu": 0.055,
+      "mem": 0.401,
+      "temp": 45
+    },
+    "out": "[epoch 0] duration=00:00:12 slept_for=00:00:03 blind=1 sad=0 bored=2 inactive=3 active=0 peers=2 tot_bond=1.00 avg_bond=0.50 hops=5 missed=1 deauths=2 assocs=3 handshakes=1 cpu=5% mem=40% temperature=45C"
+  },
+  {
+    "in": {
+      "epoch": 17,
+      "duration": 3661.999,
+      "slept": 90061.1,
+      "blind": 0,
+      "sad": 1,
+      "bored": 0,
+      "inactive": 25,
+      "active": 0,
+      "peers": 0,
+      "tot_bond": 0.0,
+      "avg_bond": 0.0,
+      "hops": 0,
+      "missed": 0,
+      "deauths": 0,
+      "assocs": 0,
+      "shakes": 0,
+      "cpu": 0.999,
+      "mem": 0.0,
+      "temp": 0
+    },
+    "out": "[epoch 17] duration=01:01:01 slept_for=25:01:01 blind=0 sad=1 bored=0 inactive=25 active=0 peers=0 tot_bond=0.00 avg_bond=0.00 hops=0 missed=0 deauths=0 assocs=0 handshakes=0 cpu=99% mem=0% temperature=0C"
+  }
+]

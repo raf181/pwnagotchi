@@ -1,0 +1,35 @@
+{{define "title"}}Message from {{.message_sender_name}}{{end}}
+{{define "script"}}// Mark message as read
+fetch('/inbox/{{.message_id}}/seen')
+  .then(res => res.text())
+  .then(data => console.log('Message marked as read'));{{end}}
+{{define "content"}}
+<div class="card">
+  <div class="card-header">
+    <div class="messagebody-meta">
+      Message from
+      <strong>{{.message_sender_name}}@{{.message_sender}}</strong>, sent
+      <time class="timeago" datetime="{{.message_created_at}}">{{.message_created_at}}</time>
+      {{if .message_seen_at}}, seen
+      <time class="timeago" datetime="{{.message_seen_at}}">{{.message_seen_at}}</time>
+      {{end}}
+    </div>
+  </div>
+  <div class="card-body">
+    {{if .message_data}}
+    <p class="messagebody">{{.message_data}}</p>
+    {{else}}
+    <p class="text-muted"><em>This message is empty.</em></p>
+    {{end}}
+  </div>
+  <div class="card-footer">
+    <a href="/inbox/new?to={{.message_sender}}" class="btn btn-primary">Reply</a>
+    <a
+      href="/inbox/{{.message_id}}/deleted"
+      class="btn danger"
+      onclick="return confirm('Are you sure?');"
+      >Delete</a
+    >
+  </div>
+</div>
+{{end}}

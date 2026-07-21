@@ -1,5 +1,8 @@
 import logging
-import RPi.GPIO as GPIO
+try:
+    import RPi.GPIO as GPIO
+except (ImportError, RuntimeError):
+    GPIO = None
 import subprocess
 import pwnagotchi.plugins as plugins
 
@@ -24,6 +27,9 @@ class GPIOButtons(plugins.Plugin):
         process.wait()
 
     def on_loaded(self):
+        if GPIO is None:
+            logging.warning("GPIO Button plugin: RPi.GPIO is unavailable or not running on Raspberry Pi hardware.")
+            return
         logging.info("GPIO Button plugin loaded.")
 
         # get list of GPIOs

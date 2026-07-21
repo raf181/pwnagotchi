@@ -18,7 +18,10 @@
 import logging
 import struct
 
-import RPi.GPIO as GPIO
+try:
+    import RPi.GPIO as GPIO
+except (ImportError, RuntimeError):
+    GPIO = None
 
 import pwnagotchi
 import pwnagotchi.plugins as plugins
@@ -58,6 +61,8 @@ class UPS:
             return 0.0
 
     def charging(self):
+        if GPIO is None:
+            return '-'
         try:
             GPIO.setmode(GPIO.BCM)
             GPIO.setup(4, GPIO.IN)

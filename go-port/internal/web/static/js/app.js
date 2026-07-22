@@ -270,3 +270,36 @@ const showToast = (message, duration = 4000, type = "error") => {
     setTimeout(() => toast.remove(), 300);
   }, duration);
 };
+
+/* ============================================
+   Crisp integer-scale rendering for the device
+   frame (#ui). CSS alone (`width: 100%` +
+   `image-rendering: pixelated`) still looks soft
+   whenever the container width isn't an exact
+   multiple of the image's native resolution,
+   since even nearest-neighbor scaling blends
+   unevenly-sized source pixels into each
+   destination pixel at a non-integer ratio. This
+   snaps the displayed width to the nearest whole
+   multiple of the image's real pixel size so every
+   destination pixel maps to a whole number of
+   source pixels — genuinely crisp, not just
+   "pixelated" in name.
+   ============================================ */
+const snapToIntegerScale = (img) => {
+  if (!img.naturalWidth) return;
+  const container = img.parentElement;
+  const available = container ? container.clientWidth : img.naturalWidth;
+  const scale = Math.max(1, Math.floor(available / img.naturalWidth));
+  img.style.width = img.naturalWidth * scale + "px";
+  img.style.height = "auto";
+};
+
+document.addEventListener("DOMContentLoaded", () => {
+  const uiImg = document.getElementById("ui");
+  if (!uiImg) return;
+  const resnap = () => snapToIntegerScale(uiImg);
+  uiImg.addEventListener("load", resnap);
+  window.addEventListener("resize", resnap);
+  if (uiImg.complete) resnap();
+});

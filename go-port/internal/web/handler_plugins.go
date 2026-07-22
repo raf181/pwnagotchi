@@ -78,6 +78,38 @@ func (s *Server) pluginsSubpath(w http.ResponseWriter, r *http.Request) {
 		subpath = parts[1]
 	}
 
+	// logtail has a real native Go implementation (see logtail.go) instead
+	// of going through the Python plugin bridge — no bridge dependency,
+	// no bridge involved at all.
+	if name == "logtail" {
+		if subpath == "stream" {
+			s.logtailStream(w, r)
+		} else {
+			s.logtailIndex(w, r)
+		}
+		return
+	}
+
+	// webcfg also has a real native Go implementation (see webcfg.go)
+	// instead of going through the Python plugin bridge — the bridge
+	// can't support its merge-save-config route's live (no-restart)
+	// config update, see webcfg.go's own doc comment.
+	if name == "webcfg" {
+		switch {
+		case subpath == "get-config" && r.Method == http.MethodGet:
+			s.webcfgGetConfig(w, r)
+		case subpath == "save-config" && r.Method == http.MethodPost:
+			s.webcfgSaveConfig(w, r)
+		case subpath == "merge-save-config" && r.Method == http.MethodPost:
+			s.webcfgMergeSaveConfig(w, r)
+		case subpath == "" || subpath == "/":
+			s.webcfgIndex(w, r)
+		default:
+			http.NotFound(w, r)
+		}
+		return
+	}
+
 	if s.bridge == nil {
 		http.Error(w, "plugin bridge unavailable", http.StatusServiceUnavailable)
 		return

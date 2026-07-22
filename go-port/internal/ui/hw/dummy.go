@@ -41,6 +41,7 @@ func (d *DummyDisplay) Layout() (*Layout, error) {
 	l := &Layout{
 		Width:      width,
 		Height:     height,
+		FontsSetup: [6]int{height / 30, height / 40, height / 30, height / 6, height / 30, height / 35},
 		Face:       Point{0, width / 12},
 		Name:       Point{5, width / 25},
 		Channel:    Point{0, 0},

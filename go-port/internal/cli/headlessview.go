@@ -44,17 +44,18 @@ func (h *HeadlessView) Snapshot() map[string]string {
 	return out
 }
 
-func (h *HeadlessView) OnStarting()       { log.Print(h.Voice.OnStarting()) }
-func (h *HeadlessView) OnKeysGeneration() { log.Print(h.Voice.OnKeysGeneration()) }
-func (h *HeadlessView) OnGrateful()       { log.Print(h.Voice.OnGrateful()) }
-func (h *HeadlessView) OnLonely()         { log.Print(h.Voice.OnLonely()) }
-func (h *HeadlessView) OnBored()          { log.Print(h.Voice.OnBored()) }
-func (h *HeadlessView) OnSad()            { log.Print(h.Voice.OnSad()) }
-func (h *HeadlessView) OnAngry()          { log.Print(h.Voice.OnAngry()) }
-func (h *HeadlessView) OnExcited()        { log.Print(h.Voice.OnExcited()) }
-func (h *HeadlessView) OnRebooting()      { log.Print(h.Voice.OnRebooting()) }
-func (h *HeadlessView) OnShutdown()       { log.Print(h.Voice.OnShutdown()) }
-func (h *HeadlessView) OnNormal()         {}
+func (h *HeadlessView) OnStarting()           { log.Print(h.Voice.OnStarting()) }
+func (h *HeadlessView) OnKeysGeneration()     { log.Print(h.Voice.OnKeysGeneration()) }
+func (h *HeadlessView) OnGrateful()           { log.Print(h.Voice.OnGrateful()) }
+func (h *HeadlessView) OnLonely()             { log.Print(h.Voice.OnLonely()) }
+func (h *HeadlessView) OnBored()              { log.Print(h.Voice.OnBored()) }
+func (h *HeadlessView) OnSad()                { log.Print(h.Voice.OnSad()) }
+func (h *HeadlessView) OnAngry()              { log.Print(h.Voice.OnAngry()) }
+func (h *HeadlessView) OnExcited()            { log.Print(h.Voice.OnExcited()) }
+func (h *HeadlessView) OnRebooting()          { log.Print(h.Voice.OnRebooting()) }
+func (h *HeadlessView) OnShutdown()           { log.Print(h.Voice.OnShutdown()) }
+func (h *HeadlessView) OnNormal()             {}
+func (h *HeadlessView) OnUploading(to string) { log.Print(h.Voice.OnUploading(to)) }
 
 func (h *HeadlessView) OnMiss(who string) { log.Print(h.Voice.OnMiss(who)) }
 

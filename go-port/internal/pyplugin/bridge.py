@@ -72,7 +72,8 @@ logging.basicConfig(
     format="[pyplugin] %(name)s %(levelname)s: %(message)s",
 )
 
-import pwnagotchi.plugins as plugins  # noqa: E402  (after sys.path/logging setup)
+import pwnagotchi  # noqa: E402  (after sys.path/logging setup)
+import pwnagotchi.plugins as plugins  # noqa: E402
 
 
 class _GoProxyStub:
@@ -216,10 +217,56 @@ def main():
     with open(sys.argv[1], "r") as f:
         config = json.load(f)
 
+    # Real cli.py sets this module global (`pwnagotchi.config = config`)
+    # before ever calling plugins.load() — some bundled plugins read it
+    # directly instead of going through self.options (e.g. pisugarx.py's
+    # on_loaded does `pwnagotchi.config['main']['plugins']['pisugarx']`).
+    # Without this, pwnagotchi.config stays at its real module default of
+    # None and any such plugin's on_loaded raises a real, avoidable
+    # TypeError ('NoneType' object is not subscriptable) — caught and
+    # logged by plugins.py's own run_once, not fatal, but real Python
+    # would have succeeded here.
+    #
+    # This is deliberately scoped to ONLY the plugins.load(config) window,
+    # not left set for the rest of this process's life, and reset to None
+    # (its real module default) before the "ready" line is ever printed —
+    # i.e. before Go can possibly send a "toggle_plugin" call. Real
+    # plugins.toggle_plugin's enable path has its OWN unconditional `if
+    # pwnagotchi.config:` branch that calls save_config(pwnagotchi.config,
+    # '/etc/pwnagotchi/config.toml') — a REAL, hardcoded system path,
+    # ignoring whatever --user-config was actually passed (see
+    # known-differences.md). Leaving pwnagotchi.config set permanently
+    # would make every real toggle_plugin call (via internal/web's plugin
+    # toggle route, and every tests/compat_pyplugin_test.go /
+    # tests/plugins/*_test.go TogglePlugin call) silently overwrite that
+    # real system file — Go's own internal/web.pluginToggle already
+    # persists the change itself (see known-differences.md), so real
+    # Python's own save here would be a redundant, unsafe-to-test
+    # side effect, not a needed one. Plugins that read pwnagotchi.config
+    # from a LATER event (e.g. webcfg.py's on_webhook config-merge) still
+    # see None here, same as before this fix — a pre-existing, disclosed
+    # gap, not a regression.
+    pwnagotchi.config = config
     try:
         plugins.load(config)
     except Exception as e:
         logging.exception("plugins.load failed: %r", e)
+    finally:
+        # plugins.load()'s on('loaded') dispatch runs each plugin's
+        # on_loaded in its OWN spawned thread (see PluginEventQueue.
+        # AddWork's "loaded" special-case in plugins/__init__.py) and
+        # does not wait for them — plugins.load() itself returns almost
+        # immediately. Join each one (bounded, so a plugin whose on_loaded
+        # deliberately never returns — e.g. bt-tether.py's fallback
+        # initialization pattern — can't hang bridge startup) before
+        # clearing pwnagotchi.config, so pisugarx.py's on_loaded (and any
+        # other plugin's) actually observes it set, deterministically,
+        # not racily.
+        for queue in list(plugins.plugin_event_queues.values()):
+            handler = getattr(queue, "load_handler", None)
+            if handler is not None:
+                handler.join(timeout=10)
+        pwnagotchi.config = None
 
     print(json.dumps({"ready": True, "loaded": sorted(plugins.loaded.keys())}), flush=True)
 

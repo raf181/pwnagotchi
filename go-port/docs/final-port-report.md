@@ -222,12 +222,65 @@ live_hardware_test.go` is scoped deliberately narrowly (read-only
 `IfaceChannels`/`Session()` queries only) specifically to make this
 mistake structurally impossible in the live-hardware suite going forward.
 
+## Session update: UI rendering fix + full plugin compatibility inventory
+
+**This section is current; several claims elsewhere in this report
+(notably outstanding-risk #1 below, which is now stale — the UI/web/plugin
+layers it describes as "Python-only" have since been built and verified)
+predate this session and a large prior "make the Go port primary"
+consolidation.** Full details in `docs/rendering-investigation.md` and
+`docs/plugin-compatibility-matrix.md`; summarized here:
+
+- **Fixed a real UI text-rendering bug.** `internal/ui/components.Text`'s
+  multi-line wrapped-text draw path advanced each line by the font's
+  design line-height metric instead of reproducing Pillow's actual
+  line-pitch formula (glyph-bbox of `"A"` + a hardcoded 4px default
+  `spacing`) — wrapped `status` text (the widest, most frequently-used
+  wrapped widget) visibly overlapped/garbled past its first line. This was
+  the literal cause of the "corrupted Go UI text" report. Fixed via
+  `pilLineSpacing()`; regression-tested against a real-Python-rendered
+  golden PNG in the new `tests/visual/` package (byte-identical
+  reproducibility of the golden verified via `tests/visual/oracle.py`
+  under the real venv). Residual ~4.5% pixel-level divergence is
+  documented, measured, unavoidable rasterizer-hinting noise (FreeType vs.
+  `golang.org/x/image/font`), not a functional regression.
+- **Inventoried and tested every one of the 23 bundled Python plugins**
+  through the real `internal/pyplugin` subprocess bridge (`cache`,
+  `logtail`, `gpio_buttons`, `memtemp` already had dedicated tests;
+  `pisugarx` and the remaining 17 gained new tests this session in
+  `tests/plugins/`). Full per-plugin hooks/events/config/deps/verification
+  table in `docs/plugin-compatibility-matrix.md`.
+- **Found and fixed a real bridge bug**: `pisugarx.py`'s `on_loaded` reads
+  the `pwnagotchi.config` module global directly, which `bridge.py` never
+  set (real `cli.py` does, before calling `plugins.load()`), so it always
+  raised a real `TypeError`, silently caught and logged — the plugin
+  looked "loaded" but its real startup logic never ran. Fixed with a
+  deliberately load-window-scoped fix (not left set permanently, to avoid
+  real `plugins.toggle_plugin` writing to the hardcoded
+  `/etc/pwnagotchi/config.toml` system path on every toggle, including
+  from automated tests) — see `known-differences.md`.
+- Two genuine, pre-existing, upstream Python fragilities were found (NOT
+  go-port bugs — same failure would occur under real, unmodified Python
+  with no matching hardware attached): `ups_lite.py` and `wittypi.py` both
+  call `smbus.SMBus(1)` inside `on_loaded` with no availability guard
+  (unlike their own `RPi.GPIO` imports, which both correctly wrap in
+  `try/except`), so both raise `FileNotFoundError` on any machine without
+  real I2C hardware. Documented, not silently worked around.
+
 ## Outstanding risks / TODO before this can be called "done"
 
-1. The entire UI/web/plugin-loader layer is still Python-only. This report
-   must not be read as "the port is a drop-in pwnagotchi replacement" —
-   only headless operation (no display, no bundled plugins running) is
-   wired end-to-end so far.
+1. ~~The entire UI/web/plugin-loader layer is still Python-only.~~ **Stale
+   as of this session** — `internal/web` (a real HTTP server with
+   templates/routes/CSRF), `internal/ui/view`+`internal/ui/hw` (real
+   rendering, verified pixel-accurate against Python — see above), and
+   `internal/pyplugin` (a real Python plugin bridge, all 23 bundled
+   plugins verified loading) all exist and are tested today. Remaining
+   real gaps in this area are narrower and itemized in
+   `docs/known-differences.md` (proxy-stub limitation for
+   `agent`/`view`/`display` arguments passed to plugin handlers, streaming
+   webhook capture limit, `pwnagotchi.config` global's load-window-only
+   scope) and `docs/plugin-compatibility-matrix.md` (network/hardware-gated
+   plugin behaviors correctly left unexercised by automated tests).
 2. Logging format consistency: `internal/logging.Logger` produces
    Python's exact `[asctime] [LEVELNAME] [threadName] : message` format,
    but every other package built so far still logs via Go's plain stdlib

@@ -44,6 +44,8 @@ var pageTemplates = map[string]*template.Template{
 	"peers":       pageTemplate("peers"),
 	"profile":     pageTemplate("profile"),
 	"plugins":     pageTemplate("plugins"),
+	"logtail":     pageTemplate("logtail"),
+	"webcfg":      pageTemplate("webcfg"),
 }
 
 func renderTemplate(name string, data map[string]interface{}) ([]byte, error) {

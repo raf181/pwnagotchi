@@ -58,9 +58,10 @@ type View struct {
 	canvas    *image.Gray
 	frozen    bool
 
-	voice *voice.Voice
-	faces *faces.Set
-	fonts *fonts.Set
+	voice      *voice.Voice
+	faces      *faces.Set
+	fonts      *fonts.Set
+	fontsSuper *fonts.Set // same faces at components.SupersampleFactor×, see fontsFromLayout
 
 	impl   hw.Driver
 	layout *hw.Layout
@@ -122,7 +123,7 @@ func New(cfg config.Map, impl hw.Driver, initial map[string]interface{}, emit Ev
 		return nil, err
 	}
 	v.layout = layout
-	v.fonts = fontsFromLayout(layout)
+	v.fonts, v.fontsSuper = fontsFromLayout(layout)
 
 	displayCfg, _ := uiCfg["display"].(config.Map)
 	v.rotation = intFieldOr(displayCfg, "rotation", 0)
@@ -175,22 +176,45 @@ func intFieldOr(m config.Map, key string, def int) int {
 	return def
 }
 
-// fontsFromLayout adapts hw.Layout.Status.Font (already-sized) plus a
-// standard set built from fonts.New for the widgets that don't have a
-// per-driver size (channel/aps/uptime/name/shakes/mode all use
-// fonts.Bold/Medium — the package-level defaults in Python, since only
-// 'status' gets a driver-specific font in base.py's _layout).
-func fontsFromLayout(l *hw.Layout) *fonts.Set {
-	fs, err := fonts.New("", 0)
+// fontsFromLayout builds the real font.Set for this specific driver from
+// hw.Layout.FontsSetup — the exact (bold, bold_small, medium, huge,
+// bold_big, small) arguments that driver's own real Python layout()
+// method passes to fonts.setup(...) (AST-extracted per driver into
+// testdata/hw_layouts.json — see scripts/gen_hw_layouts.py). A previous
+// revision of this function ignored FontsSetup entirely and always built
+// the generic fonts.New("", 0) sizes instead, silently rendering every
+// non-generic driver's "huge" face glyph and other widgets at the wrong
+// size (e.g. waveshare_4 real Python uses huge=35; the generic default is
+// 25) — a real parity bug, not just a rendering-quality one, now fixed.
+func fontsFromLayout(l *hw.Layout) (*fonts.Set, *fonts.Set) {
+	sizes := l.FontsSetup
+	if sizes == ([6]int{}) {
+		// No driver-specific sizes recorded (e.g. a Layout built by hand
+		// without populating FontsSetup) — fall back to Python's own
+		// fonts.py module-level default (fonts.init calls setup(10, 8,
+		// 10, 25, 25, 9)), matching what a real display with no
+		// layout()-time fonts.setup() call at all would still have from
+		// whatever ran first.
+		sizes = [6]int{10, 8, 10, 25, 25, 9}
+	}
+	fs, err := fonts.NewSized(sizes[0], sizes[1], sizes[2], sizes[3], sizes[4], sizes[5])
 	if err != nil {
-		// fonts.New only fails if the embedded TTF data itself is corrupt,
-		// which would be a build-time defect, not a runtime condition —
+		// Only fails if the embedded TTF data itself is corrupt, which
+		// would be a build-time defect, not a runtime condition —
 		// panicking here matches "this can't happen in a working build"
 		// rather than threading an error through every caller for a case
 		// that isn't a real operational failure mode.
 		panic(fmt.Sprintf("view: embedded fonts failed to load: %v", err))
 	}
-	return fs
+	// Same faces at components.SupersampleFactor× the point size, used to
+	// render text at higher resolution before downsampling — see
+	// components.Text.SuperFont's doc comment for why.
+	const f = components.SupersampleFactor
+	superFs, err := fonts.NewSized(sizes[0]*f, sizes[1]*f, sizes[2]*f, sizes[3]*f, sizes[4]*f, sizes[5]*f)
+	if err != nil {
+		panic(fmt.Sprintf("view: embedded fonts failed to load (super): %v", err))
+	}
+	return fs, superFs
 }
 
 func (v *View) buildInitialState(uiCfg config.Map) {
@@ -201,33 +225,37 @@ func (v *View) buildInitialState(uiCfg config.Map) {
 
 	elements := map[string]sceneElement{
 		"channel": &labeledValueElement{widget: &components.LabeledValue{
-			Label: strPtr("CH"), Value: "00", Position: pt(v.layout.Channel), LabelFont: v.fonts.Bold, TextFont: v.fonts.Medium, Color: v.black,
+			Label: strPtr("CH"), Value: "00", Position: pt(v.layout.Channel), LabelFont: v.fonts.Bold, TextFont: v.fonts.Medium, Color: v.black, LabelSpacing: components.DefaultLabelSpacing,
+			LabelFontSuper: v.fontsSuper.Bold, TextFontSuper: v.fontsSuper.Medium,
 		}},
 		"aps": &labeledValueElement{widget: &components.LabeledValue{
-			Label: strPtr("APS"), Value: "0 (00)", Position: pt(v.layout.APs), LabelFont: v.fonts.Bold, TextFont: v.fonts.Medium, Color: v.black,
+			Label: strPtr("APS"), Value: "0 (00)", Position: pt(v.layout.APs), LabelFont: v.fonts.Bold, TextFont: v.fonts.Medium, Color: v.black, LabelSpacing: components.DefaultLabelSpacing,
+			LabelFontSuper: v.fontsSuper.Bold, TextFontSuper: v.fontsSuper.Medium,
 		}},
 		"uptime": &labeledValueElement{widget: &components.LabeledValue{
-			Label: strPtr("UP"), Value: "00:00:00", Position: pt(v.layout.Uptime), LabelFont: v.fonts.Bold, TextFont: v.fonts.Medium, Color: v.black,
+			Label: strPtr("UP"), Value: "00:00:00", Position: pt(v.layout.Uptime), LabelFont: v.fonts.Bold, TextFont: v.fonts.Medium, Color: v.black, LabelSpacing: components.DefaultLabelSpacing,
+			LabelFontSuper: v.fontsSuper.Bold, TextFontSuper: v.fontsSuper.Medium,
 		}},
 		"line1": &structuralElement{widget: &components.Line{XY: rectFrom4(v.layout.Line1), Color: v.black}},
 		"line2": &structuralElement{widget: &components.Line{XY: rectFrom4(v.layout.Line2), Color: v.black}},
 		"face": newTextElement(&components.Text{
-			Position: components.Point{X: posX, Y: posY}, Color: v.black, Font: v.fonts.Huge, PNG: pngFace,
+			Position: components.Point{X: posX, Y: posY}, Color: v.black, Font: v.fonts.Huge, SuperFont: v.fontsSuper.Huge, PNG: pngFace,
 		}, strPtr(v.faces.Sleep)),
 		"friend_name": newTextElement(&components.Text{
-			Position: pt(v.layout.FriendFace), Color: v.black, Font: v.fonts.BoldSmall,
+			Position: pt(v.layout.FriendFace), Color: v.black, Font: v.fonts.BoldSmall, SuperFont: v.fontsSuper.BoldSmall,
 		}, nil),
 		"name": newTextElement(&components.Text{
-			Position: pt(v.layout.Name), Color: v.black, Font: v.fonts.Bold,
+			Position: pt(v.layout.Name), Color: v.black, Font: v.fonts.Bold, SuperFont: v.fontsSuper.Bold,
 		}, strPtr("pwnagotchi>")),
 		"status": newTextElement(&components.Text{
 			Position: pt(v.layout.Status.Pos), Color: v.black, Font: v.layout.Status.Font, Wrap: true, MaxLength: v.layout.Status.Max,
 		}, strPtr(v.voice.Default())),
 		"shakes": &labeledValueElement{widget: &components.LabeledValue{
-			Label: strPtr("PWND "), Value: "0 (00)", Position: pt(v.layout.Shakes), LabelFont: v.fonts.Bold, TextFont: v.fonts.Medium, Color: v.black,
+			Label: strPtr("PWND "), Value: "0 (00)", Position: pt(v.layout.Shakes), LabelFont: v.fonts.Bold, TextFont: v.fonts.Medium, Color: v.black, LabelSpacing: components.DefaultLabelSpacing,
+			LabelFontSuper: v.fontsSuper.Bold, TextFontSuper: v.fontsSuper.Medium,
 		}},
 		"mode": newTextElement(&components.Text{
-			Position: pt(v.layout.Mode), Color: v.black, Font: v.fonts.Bold,
+			Position: pt(v.layout.Mode), Color: v.black, Font: v.fonts.Bold, SuperFont: v.fontsSuper.Bold,
 		}, strPtr("AUTO")),
 	}
 
@@ -360,6 +388,18 @@ func (v *View) Update(force bool, newData map[string]interface{}) {
 			log.Printf("view: draw error: %v", err)
 		}
 	}
+
+	// Real Python creates its canvas as PIL mode '1' (Image.new('1', ...),
+	// see ui/view.py's View.update): a true 1-bit-per-pixel image, so
+	// every draw operation — including font glyph rendering — is
+	// necessarily pure black/white with no anti-aliased gray edges at
+	// all, matching the actual e-ink/OLED hardware's binary pixels. Go's
+	// font rasterizer produces genuine anti-aliased gray edges on our
+	// 8-bit image.Gray canvas; thresholding every pixel to whichever of
+	// v.black/v.white it's closer to reproduces Python's real
+	// stark-pixel rendering instead of leaving soft/blurry edges in
+	// what's shown on screen and served to the web UI.
+	thresholdToBlackAndWhite(canvas, v.black, v.white)
 	v.canvas = canvas
 
 	if v.impl != nil {
@@ -373,6 +413,47 @@ func (v *View) Update(force bool, newData map[string]interface{}) {
 	}
 
 	v.state.Reset()
+}
+
+// inkCoverageThreshold is the minimum ink-coverage fraction (0=pure
+// background, 1=pure ink) a pixel needs to be quantized to black instead
+// of white. A plain 50% midpoint cutoff already looks correct for most
+// text/shapes (verified side-by-side against Pillow/FreeType rendering
+// the same text/font/size directly onto a real mode-'1' image); this is
+// nudged slightly below 50% because a handful of thin strokes in small
+// digits/letters land just under the midpoint and disappear entirely at
+// exactly 0.5, fragmenting the letterform. Tuned empirically by rendering
+// the same small labeled-value text (fonts.Bold + fonts.Medium, the exact
+// faces/sizes/hinting internal/ui/fonts actually uses) through several
+// candidate thresholds and comparing legibility — not derived from a
+// specification.
+const inkCoverageThreshold = 0.42
+
+// thresholdToBlackAndWhite quantizes every pixel to black or white (no
+// dithering, matching Pillow's own default behavior when compositing
+// drawn shapes/text onto a mode-'1' image — ui/view.py never requests
+// dithering). ink is the fraction of the way from white to black a pixel
+// sits (0=white/background, 1=black/ink) — computed this way round
+// (not "distance to nearest endpoint") so inkCoverageThreshold's bias
+// consistently means "more generous toward ink" regardless of whether
+// black is numerically greater than white or vice versa (the invert
+// config swaps which raw byte value means "black" — see the black/white
+// consts above).
+func thresholdToBlackAndWhite(canvas *image.Gray, black, white uint8) {
+	b, w := int(black), int(white)
+	span := b - w
+	for i, p := range canvas.Pix {
+		v := int(p)
+		var ink float64
+		if span != 0 {
+			ink = float64(v-w) / float64(span)
+		}
+		if ink >= inkCoverageThreshold {
+			canvas.Pix[i] = black
+		} else {
+			canvas.Pix[i] = white
+		}
+	}
 }
 
 // IsNormal ports View.is_normal: NOTE this replicates a real Python bug —

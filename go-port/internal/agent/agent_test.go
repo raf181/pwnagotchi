@@ -39,6 +39,7 @@ func (v *fakeView) OnSad()                                                    {}
 func (v *fakeView) OnAngry()                                                  {}
 func (v *fakeView) OnExcited()                                                {}
 func (v *fakeView) OnRebooting()                                              { v.rebooting = true }
+func (v *fakeView) OnUploading(to string)                                     {}
 func (v *fakeView) OnMiss(who string)                                         {}
 func (v *fakeView) Wait(t float64, sleeping bool)                             {}
 func (v *fakeView) OnStateChange(event string, cb func(old, new interface{})) {}

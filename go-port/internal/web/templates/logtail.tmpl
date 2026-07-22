@@ -1,0 +1,114 @@
+{{define "title"}}Logtail{{end}}
+{{define "content"}}
+<style>
+  .logtail-header { margin-bottom: 2rem; padding: 1.5rem 0; border-bottom: 1px solid var(--border-color); }
+  #divTop { position: sticky; top: 0; display: flex; gap: 0.5rem; align-items: center; width: 100%;
+    padding: 1rem; margin-bottom: 1.5rem; font-size: 0.95rem; background-color: var(--card-bg);
+    border: 1px solid var(--border-color); border-radius: 8px; z-index: 100; }
+  #filter { flex: 1; min-width: 200px; }
+  #divTop > span { display: flex; align-items: center; gap: 0.5rem; white-space: nowrap; }
+  .table-container { background-color: var(--card-bg); border: 1px solid var(--border-color);
+    border-radius: 8px; overflow: hidden; box-shadow: var(--shadow-md); margin-bottom: 2rem; overflow-x: auto; }
+  table { table-layout: auto; width: 100%; border-collapse: collapse; background-color: var(--card-bg); }
+  th { padding: 14px 16px; text-align: left; color: var(--accent); font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.85rem; border-bottom: 2px solid var(--border-color); }
+  td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border-color);
+    color: var(--text-body); font-size: 0.9rem; word-break: break-word; white-space: pre-wrap; }
+  td:nth-child(1) { width: 130px; color: var(--text-muted); font-size: 0.85rem; white-space: nowrap; }
+  td:nth-child(2) { width: 80px; text-align: center; font-weight: 600; }
+  tr.info td:nth-child(2) { color: var(--info, #2196f3); }
+  tr.warning td:nth-child(2) { color: #ffa500; }
+  tr.error td:nth-child(2) { color: var(--danger, #e53935); }
+  tr.debug td:nth-child(2) { color: #b39ddb; }
+</style>
+<div class="logtail-header">
+  <h2>System Log</h2>
+  <p>Real-time log viewer with filtering and auto-scroll capabilities</p>
+</div>
+
+<div id="divTop">
+  <input type="text" id="filter" placeholder="Filter logs..." title="Type to filter log messages">
+  <span>
+    <input type="checkbox" id="autoscroll" checked>
+    <label for="autoscroll">Auto-scroll</label>
+  </span>
+</div>
+
+<div class="table-container">
+  <table id="table">
+    <thead>
+      <tr><th>Time</th><th>Level</th><th>Message</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+{{end}}
+{{define "script"}}
+var table = document.getElementById("table").querySelector("tbody");
+var filter = document.getElementById("filter");
+
+var xhr = new XMLHttpRequest();
+xhr.open("GET", "logtail/stream");
+xhr.send();
+var position = 0;
+
+function handleNewData() {
+  var messages = xhr.responseText.split('\n');
+  var filterVal = filter.value.toUpperCase();
+  messages.slice(position, -1).forEach(function(value) {
+    var time, level, msg, colorClass;
+    if (value.charAt(0) != "[") {
+      msg = value; time = ""; level = "";
+    } else {
+      var data = value.split("]");
+      time = data.shift() + "]";
+      level = data.shift() + "]";
+      msg = data.join("]");
+      switch (level) {
+        case " [INFO]": colorClass = "info"; break;
+        case " [WARNING]": colorClass = "warning"; break;
+        case " [ERROR]": colorClass = "error"; break;
+        case " [DEBUG]": colorClass = "debug"; break;
+        default: colorClass = "default"; break;
+      }
+    }
+    var tr = document.createElement("tr");
+    var td1 = document.createElement("td"); td1.textContent = time;
+    var td2 = document.createElement("td"); td2.textContent = level;
+    var td3 = document.createElement("td"); td3.textContent = msg;
+    tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
+    tr.className = colorClass || "default";
+    if (filterVal.length > 0 && value.toUpperCase().indexOf(filterVal) == -1) {
+      tr.style.display = "none";
+    }
+    table.appendChild(tr);
+  });
+  position = messages.length - 1;
+}
+
+var scrollingElement = (document.scrollingElement || document.body);
+function scrollToBottom() { scrollingElement.scrollTop = scrollingElement.scrollHeight; }
+
+var scrollElm = document.getElementById("autoscroll");
+var timer = setInterval(function() {
+  handleNewData();
+  if (scrollElm.checked) scrollToBottom();
+  if (xhr.readyState == XMLHttpRequest.DONE) clearInterval(timer);
+}, 1000);
+
+var typingTimer;
+filter.onkeyup = function() {
+  clearTimeout(typingTimer);
+  typingTimer = setTimeout(doneTyping, 500);
+};
+filter.onkeydown = function() { clearTimeout(typingTimer); };
+
+function doneTyping() {
+  var filterVal = filter.value.toUpperCase();
+  var rows = table.getElementsByTagName("tr");
+  for (var i = 0; i < rows.length; i++) {
+    var txt = rows[i].textContent || rows[i].innerText;
+    rows[i].style.display = (filterVal.length === 0 || txt.toUpperCase().indexOf(filterVal) > -1) ? "table-row" : "none";
+  }
+}
+{{end}}

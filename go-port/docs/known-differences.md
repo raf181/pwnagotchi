@@ -272,6 +272,26 @@ proxy for these objects (so stub method calls actually round-trip to the Go
 process and back) is out of scope for this session — tracked as future
 work, not silently dropped, since the failure mode is loud and explicit.
 
+**Confirmed real-world impact, not just theoretical**: `wpa-sec.py`'s
+`on_handshake` calls `agent.config()` and `on_internet_available` calls
+`agent.view()` — both hit this exact wall. Verified live against the
+running daemon: every real dispatch crashed on its first line with a
+real `NotImplementedError`, so handshakes were never queued and uploads
+to wpa-sec.stanev.org never happened at all — not a network/credentials
+problem, this exact limitation. Rather than wait on the general
+bidirectional-RPC-proxy work, `wpa-sec` (like `logtail` and `webcfg`
+before it) was reimplemented natively in Go
+(`internal/wpasec/wpasec.go`), wired directly into the same
+`EventEmitter` chain `agent`/`automata`/`mesh` already use, where
+`*agent.Agent.Config()`/`.View()` are already real, non-stubbed public
+methods. See `docs/plugin-compatibility-matrix.md`'s `wpa-sec` row for
+the full verification. Any OTHER bundled plugin that calls a method on
+its `agent`/`view`/`display` argument (several do — `auto-tune.py`,
+`fix_services.py`, several others per the plugin matrix) hits this same
+wall and remains unfixed; `wpa-sec` was prioritized because it's a core,
+widely-used feature (handshake cracking upload), not because the
+underlying limitation is unique to it.
+
 ### `Agent._fetch_stats`'s per-step exception granularity
 Python wraps each of `_update_uptime`, `_update_advertisement`,
 `_update_peers`, `_update_counters`, `_update_handshakes` in its OWN
@@ -426,29 +446,98 @@ object with `_agent = None` before calling it — the same state a real
 daemon has before its own agent has registered with the view, not a
 behavior change. Real Python's `toggle_plugin` also persists the new
 enabled state to `/etc/pwnagotchi/config.toml` itself when
-`pwnagotchi.config` happens to be set; since the bridge process never runs
-that global-setting daemon-startup code, `internal/web.pluginToggle`
-persists the change itself via `internal/config.SaveConfig` after a
-successful bridge toggle, to the same hardcoded `/etc/pwnagotchi/config.toml`
-path real Python's `toggle_plugin` hardcodes (ignoring whatever
-`--user-config` path was actually passed at startup — a real, if obscure,
-Python quirk, preserved rather than "fixed"). Verified end-to-end against
-real bundled plugins (`cache.py`, `logtail.py`) in
-`tests/compat_pyplugin_test.go`.
+`pwnagotchi.config` (the module global, not a plugin's own `self.options`)
+happens to be set. `bridge.py` DOES now set that global (see the next
+entry below), but only for the real `plugins.load(config)` window at
+startup, deliberately reset back to `None` before the bridge ever prints
+its "ready" line — i.e. before any `"call"` message, including
+`toggle_plugin`, could possibly arrive. So `toggle_plugin`'s own internal
+save-to-`/etc/pwnagotchi/config.toml` branch still never fires from the
+bridge in practice, and `internal/web.pluginToggle` remains the thing
+that persists a toggle, via `internal/config.SaveConfig`, to the same
+hardcoded `/etc/pwnagotchi/config.toml` path real Python's `toggle_plugin`
+hardcodes (ignoring whatever `--user-config` path was actually passed at
+startup — a real, if obscure, Python quirk, preserved rather than
+"fixed"). Verified end-to-end against real bundled plugins (`cache.py`,
+`logtail.py`) in `tests/compat_pyplugin_test.go`.
+
+### `internal/pyplugin` bridge: `pwnagotchi.config` module global set only during the load window
+Real `cli.py` sets `pwnagotchi.config = config` once at daemon startup,
+before ever calling `plugins.load()`, and it stays set for the process's
+entire life. Some bundled plugins read this module global directly
+instead of (or in addition to) their own `self.options` — discovered this
+session via `pisugarx.py`'s `on_loaded`, which does `cfg =
+pwnagotchi.config['main']['plugins']['pisugarx']`. `bridge.py` never set
+this at all until this session, so that line always raised a real
+`TypeError: 'NoneType' object is not subscriptable` — silently caught and
+logged by `plugins.py`'s own `run_once` (the same fire-and-forget
+exception handling every `on_loaded` call gets), meaning the plugin still
+appeared in `Loaded` while its real startup logic silently never ran. Now
+fixed: `bridge.py`'s `main()` sets `pwnagotchi.config = config` for the
+real `plugins.load(config)` call, joins every plugin's spawned `on_loaded`
+thread (bounded, 10s each) so this is deterministic rather than a race,
+then resets it to `None` before printing the "ready" line. It is
+deliberately NOT left set permanently — see the entry above for why
+(`toggle_plugin`'s real, hardcoded `/etc/pwnagotchi/config.toml` write).
+One known, disclosed, PRE-EXISTING consequence (not a regression — this
+was already the case before this fix, since `pwnagotchi.config` was always
+`None`): a plugin that reads `pwnagotchi.config` from a LATER event, not
+during the initial load window, still sees `None`. `webcfg.py`'s
+`on_webhook` config-editor POST handler was the one bundled plugin that
+did this (`pwnagotchi.config = merge_config(request.get_json(),
+pwnagotchi.config)`), which is why its web routes are now reimplemented
+natively in Go (`internal/web/webcfg.go`) instead of routed through the
+bridge — same reasoning as `logtail`'s native rewrite below: this gap
+isn't a timing edge case for `webcfg`, its whole "merge and save without a
+restart" feature depends on exactly the runtime global-write pattern the
+bridge structurally can't support. The original bundled `webcfg.py` is
+still separately loadable/toggleable through the bridge like any other
+plugin (see `docs/plugin-compatibility-matrix.md`'s `webcfg` row); only
+its web routes are intercepted natively.
+Regression-tested in `tests/plugins/compat_pisugarx_test.go` (the
+`pwnagotchi.config` fix itself) and `internal/web/webcfg_test.go` (the
+native Go implementation's save/merge/CSRF/live-update behavior).
 
 ### Plugin webhook: infinite/streaming Flask responses will hang
 `internal/pyplugin/bridge.py`'s webhook call captures a plugin's full
 `on_webhook` response body (via Flask's `resp.get_data()`) and returns it
 in one message. A handler that returns an unbounded generator response
-(e.g. `plugins/default/logtail.py`'s `on_webhook(path="stream")`, which
-`yield`s an initial batch then loops `yield f.readline()` forever for a
-live-tailing HTTP response) will never finish being captured — the call
-will hang until its timeout. This is a real, disclosed architectural limit
-of capture-whole-body-then-respond RPC, not something silently broken:
+would never finish being captured — the call would hang until its
+timeout. This is a real, disclosed architectural limit of
+capture-whole-body-then-respond RPC, not something silently broken:
 `internal/pyplugin.Bridge.Webhook` has a real timeout (30s) so it fails
-loudly rather than hanging the whole daemon, and this specific case was
-deliberately excluded from `tests/compat_pyplugin_test.go` rather than
-disguised as passing.
+loudly rather than hanging the whole daemon. `plugins/default/logtail.py`
+is the one bundled plugin that actually hits this (`on_webhook(path=
+"stream")` `yield`s an initial batch then loops `yield f.readline()`
+forever) — rather than leave that one plugin permanently broken behind
+the bridge, `internal/web/logtail.go` reimplements it natively in Go (see
+`docs/plugin-compatibility-matrix.md`'s logtail row): same route
+(`/plugins/logtail`, `/plugins/logtail/stream`), same tail-then-follow
+behavior, real `http.Flusher`-based streaming with no capture-whole-body
+limitation, verified end-to-end in
+`internal/web/server_test.go`'s `TestLogtailIsNativeGoNotBridge`
+(real temp log file, real live-appended line arriving on an
+already-open stream). Every OTHER bundled plugin's webhook still goes
+through the generic bridge path and remains subject to this same
+disclosed limit if it ever returns an unbounded generator response — none
+currently do (verified in the plugin compatibility matrix).
+
+### UI text rendering: multi-line spacing bug (fixed) and residual rasterizer differences
+See `docs/rendering-investigation.md` for the full pipeline trace. Summary:
+a prior revision of `internal/ui/components.Text.Draw`'s multi-line loop
+advanced each wrapped line by the font's design line-height metric
+(`Metrics().Height`) instead of reproducing Pillow's actual formula
+(glyph-bbox of `"A"` + a hardcoded default 4px `spacing`), causing wrapped
+`status` text to visibly overlap/garble past its first line — this was the
+literal cause of the reported "corrupted" Go UI text. Fixed via
+`pilLineSpacing()`, regression-tested by `tests/visual/golden_test.go`
+against a real-Python-rendered golden PNG. A residual ~4.5% pixel-level
+mismatch remains and is NOT a bug: sub-pixel glyph-edge antialiasing noise
+(FreeType vs. `golang.org/x/image/font` hinting) and one decorative face
+glyph (`•`, rendered smaller/tighter by Python's hinter than Go's
+supersample-then-threshold pipeline at the `huge` face size) — both
+verified by direct pixel inspection, neither affects text legibility or
+position.
 
 ## Unverified-without-hardware
 

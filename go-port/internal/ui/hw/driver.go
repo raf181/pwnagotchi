@@ -37,6 +37,15 @@ type Layout struct {
 	FriendFace, FriendName, Shakes, Mode Point
 	Line1, Line2                         [4]int
 	Status                               StatusLayout
+
+	// FontsSetup is (bold, boldSmall, medium, huge, boldBig, small) — the
+	// exact args this specific driver's real layout() method passes to
+	// fonts.setup(...), so callers building a font.Set for non-Status
+	// widgets (Face/Name/Channel/APs/Uptime/Shakes/Mode) use the real
+	// per-driver sizes too, not just Status (which already got this right
+	// via StatusFont below — everything else didn't, until this field
+	// existed to carry it out of Layout()).
+	FontsSetup [6]int
 }
 
 // Driver ports hw.base.DisplayImpl (the ABI every concrete display driver
@@ -126,7 +135,8 @@ func (d *unsupportedDriver) Layout() (*Layout, error) {
 		FriendFace: ptFrom(data.FriendFace), FriendName: ptFrom(data.FriendName),
 		Shakes: ptFrom(data.Shakes), Mode: ptFrom(data.Mode),
 		Line1: data.Line1, Line2: data.Line2,
-		Status: StatusLayout{Pos: ptFrom(data.StatusPos), Font: statusFont, Max: data.StatusMax},
+		Status:     StatusLayout{Pos: ptFrom(data.StatusPos), Font: statusFont, Max: data.StatusMax},
+		FontsSetup: fs,
 	}, nil
 }
 

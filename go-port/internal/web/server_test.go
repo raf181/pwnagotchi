@@ -1,12 +1,14 @@
 package web
 
 import (
+	"bufio"
 	"image"
 	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -373,5 +375,92 @@ func TestRealHTTPRoundTrip(t *testing.T) {
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("expected real 403 for a csrf-less POST, got %d", resp.StatusCode)
+	}
+}
+
+// TestLogtailIsNativeGoNotBridge proves the logtail plugin's web UI works
+// via a real, native Go implementation (internal/web/logtail.go) — no
+// pyplugin bridge involved at all, so it can never hang on the bridge's
+// FIFO backlog or its whole-body-capture limitation on an infinite
+// stream. Uses a real temp log file, real tailLines reading, and a real
+// live HTTP stream read via http.Flusher.
+func TestLogtailIsNativeGoNotBridge(t *testing.T) {
+	logDir := t.TempDir()
+	logPath := logDir + "/pwnagotchi.log"
+	initial := "[2026-01-01 00:00:00] [INFO] : line one\n[2026-01-01 00:00:01] [ERROR] : line two\n"
+	if err := os.WriteFile(logPath, []byte(initial), 0o644); err != nil {
+		t.Fatalf("writing test log: %v", err)
+	}
+
+	cfg := config.Map{
+		"ui": config.Map{"web": config.Map{"enabled": true}},
+		"main": config.Map{
+			"log":     config.Map{"path": logPath},
+			"plugins": config.Map{"logtail": config.Map{"max-lines": int64(100)}},
+		},
+	}
+	s := New(cfg, "test-unit", fakeAgentInfo{}, nil, nil, &fakeActions{}, cfg, "")
+	mux := http.NewServeMux()
+	s.registerRoutes(mux)
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	// Index page: real HTML, no bridge.
+	resp, err := http.Get(srv.URL + "/plugins/logtail")
+	if err != nil {
+		t.Fatalf("GET /plugins/logtail: %v", err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", resp.StatusCode, body)
+	}
+	if !strings.Contains(string(body), "System Log") {
+		t.Fatalf("expected real logtail index content, got %s", body)
+	}
+
+	// Stream: real initial tail content served promptly, then real live
+	// appended lines follow without the request ever needing to finish.
+	req, _ := http.NewRequest(http.MethodGet, srv.URL+"/plugins/logtail/stream", nil)
+	client := &http.Client{}
+	streamResp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("GET stream: %v", err)
+	}
+	defer streamResp.Body.Close()
+
+	reader := bufio.NewReader(streamResp.Body)
+	line1, err := reader.ReadString('\n')
+	if err != nil || !strings.Contains(line1, "line one") {
+		t.Fatalf("expected real first tailed line, got %q err=%v", line1, err)
+	}
+	line2, err := reader.ReadString('\n')
+	if err != nil || !strings.Contains(line2, "line two") {
+		t.Fatalf("expected real second tailed line, got %q err=%v", line2, err)
+	}
+
+	// Real live append: write a new line to the real file and confirm it
+	// arrives on the already-open stream without a new request.
+	f, err := os.OpenFile(logPath, os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatalf("opening log for append: %v", err)
+	}
+	if _, err := f.WriteString("[2026-01-01 00:00:02] [WARNING] : line three\n"); err != nil {
+		t.Fatalf("appending: %v", err)
+	}
+	f.Close()
+
+	done := make(chan string, 1)
+	go func() {
+		line, _ := reader.ReadString('\n')
+		done <- line
+	}()
+	select {
+	case line3 := <-done:
+		if !strings.Contains(line3, "line three") {
+			t.Fatalf("expected real live-appended line, got %q", line3)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatalf("real appended line never arrived on the live stream")
 	}
 }

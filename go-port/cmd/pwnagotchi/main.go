@@ -24,6 +24,7 @@ import (
 	"github.com/jayofelony/pwnagotchi/go-port/internal/version"
 	"github.com/jayofelony/pwnagotchi/go-port/internal/voice"
 	"github.com/jayofelony/pwnagotchi/go-port/internal/web"
+	"github.com/jayofelony/pwnagotchi/go-port/internal/wpasec"
 )
 
 // agentInfoAdapter satisfies internal/web.AgentInfo from a real
@@ -75,6 +76,21 @@ type fullView interface {
 type noopEmitter struct{}
 
 func (noopEmitter) On(string, ...interface{}) {}
+
+// multiEmitter fans an On(event, args...) call out to every emitter it
+// wraps, in order — how internal/wpasec (a native Go plugin) runs
+// alongside the real Python plugin bridge without either needing to know
+// about the other: both simply receive every real event the daemon
+// already emits.
+type multiEmitter []interface {
+	On(event string, args ...interface{})
+}
+
+func (m multiEmitter) On(event string, args ...interface{}) {
+	for _, e := range m {
+		e.On(event, args...)
+	}
+}
 
 func main() {
 	os.Exit(run())
@@ -175,6 +191,16 @@ func run() int {
 		emit = bridge
 		defer bridge.Close()
 	}
+
+	// wpa-sec is a native Go plugin (internal/wpasec), not routed through
+	// the bridge above — see that package's doc comment for why (its
+	// on_handshake/on_internet_available need real agent.Config()/
+	// agent.View() calls, which only a native Go plugin sharing the same
+	// *agent.Agent can make; across the bridge those would be inert
+	// _GoProxyStub attribute accesses that always raise). Fanned out
+	// alongside whatever `emit` already is (the bridge, or noopEmitter if
+	// the bridge failed to start) so both receive every real event.
+	emit = multiEmitter{emit, wpasec.New(cfg)}
 
 	name := stringField(mainField(cfg), "name", "")
 	initialState := map[string]interface{}{"name": fmt.Sprintf("%s>", name)}

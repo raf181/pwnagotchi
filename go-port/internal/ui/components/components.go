@@ -204,7 +204,20 @@ type Text struct {
 	Wrap      bool
 	MaxLength int
 	PNG       bool
+
+	// SuperFont, if set, is Font's exact same face at SupersampleFactor×
+	// the point size (see internal/ui/view's fontsSuper). When present,
+	// Draw renders through it at higher resolution and downsamples with
+	// box-filter averaging before the caller's later global 1-bit
+	// threshold — see drawSupersampled's doc comment for why this
+	// matters. Left nil, Draw falls back to direct single-resolution
+	// rendering (used by tests that don't need pixel-perfect fidelity).
+	SuperFont xfont.Face
 }
+
+// SupersampleFactor is how much larger SuperFont's point size is than
+// Font's. Must match how internal/ui/view builds its "Super" fonts.Set.
+const SupersampleFactor = 4
 
 // Draw ports Text.draw. The `value is None` guard in Python (skip drawing
 // entirely) is replicated by callers passing a nil *Text / not calling
@@ -219,17 +232,149 @@ func (t *Text) Draw(canvas draw.Image) error {
 	if t.Wrap {
 		text = wrapText(t.Value, t.MaxLength)
 	}
+	if t.SuperFont != nil {
+		if grayCanvas, ok := canvas.(*image.Gray); ok {
+			return t.drawSupersampled(grayCanvas, text)
+		}
+	}
 	d := &xfont.Drawer{
 		Dst:  canvas,
 		Src:  image.NewUniform(gray(t.Color)),
 		Face: t.Font,
 	}
+	metrics := t.Font.Metrics()
+	spacing := pilLineSpacing(t.Font)
 	y := t.Position.Y
 	for _, line := range strings.Split(text, "\n") {
-		metrics := t.Font.Metrics()
 		d.Dot = fixed.P(t.Position.X, y+metrics.Ascent.Round())
 		d.DrawString(line)
-		y += metrics.Height.Round()
+		y += spacing
+	}
+	return nil
+}
+
+// pilLineSpacing reproduces the exact line-to-line pixel pitch Pillow's
+// ImageDraw.text/multiline_text uses for wrapped text, NOT a font's design
+// line-height metric (Ascent+Descent+LineGap, what golang.org/x/image/
+// font's Metrics().Height gives). PIL/ImageText.py's Text._get_lines
+// (called by any multi-line drawer.text(..., font=...) — pwnagotchi never
+// passes a custom `spacing=`, so the default 4 always applies) computes:
+//
+//	line_spacing = font.getbbox("A", ...)[3] + stroke_width(0) + spacing(4)
+//
+// i.e. the actual rendered pixel bounding box of the specific glyph "A"
+// (measured from the text draw origin, which PIL anchors at the font's
+// ascender line — the same origin Go's Position.Y + Ascent baseline
+// convention uses) — NOT a generic ascent+descent+linegap sum. For a font
+// with no descender on "A" (true of DejaVu Sans Mono, the only font this
+// port ever loads), that bbox-bottom coincides with the hinted/rounded
+// Ascent value, but this is computed via the same real glyph-bounds
+// mechanism PIL uses rather than assumed, so it stays correct for any
+// future font swap too. A prior revision of this function used
+// metrics.Height.Round() (no +4 spacing, and using LineGap instead of "A"'s
+// real glyph extent), which under-advanced each line — by line 2 of any
+// wrapped status message the text visibly overlapped the line above it
+// (verified against a real Python-rendered golden in
+// tests/visual/golden_test.go; see docs/rendering-investigation.md).
+func pilLineSpacing(face xfont.Face) int {
+	const pilDefaultSpacing = 4
+	metrics := face.Metrics()
+	bounds, _, ok := face.GlyphBounds('A')
+	bottom := metrics.Ascent
+	if ok {
+		bottom += bounds.Max.Y
+	}
+	return bottom.Round() + pilDefaultSpacing
+}
+
+// drawSupersampled renders text at SupersampleFactor× resolution into a
+// private buffer, then downsamples it back with box-filter (area-average)
+// downsampling before writing into the real canvas — real anti-aliased
+// coverage information from many finer sub-pixel samples, not a guess.
+//
+// Why this exists: golang.org/x/image/font's anti-aliased single-resolution
+// coverage values for DejaVu Sans Mono at the small sizes this UI actually
+// uses (8-10pt) don't survive a later 1-bit threshold as cleanly as
+// Pillow/FreeType's rendering of the exact same font/text/size does — verified
+// by rendering identical text through both and comparing. No single
+// threshold cutoff resolves this: a lenient one (favoring thin diagonal
+// strokes in letters like "5"/"2") fills in small digits' counters (the
+// hole in "0"), while a strict one (preserving those counters) fragments
+// thin strokes elsewhere. Supersampling first (this function) resolves
+// both, the same way any font rasterizer gets clean small text: more
+// samples per final pixel before the binary decision, not a smarter
+// binary decision on the same too-few samples.
+func (t *Text) drawSupersampled(canvas *image.Gray, text string) error {
+	lineHeight := pilLineSpacing(t.Font)
+	lines := strings.Split(text, "\n")
+
+	maxWidth := 0
+	for _, line := range lines {
+		if w := xfont.MeasureString(t.Font, line).Round(); w > maxWidth {
+			maxWidth = w
+		}
+	}
+	totalHeight := lineHeight * len(lines)
+	if maxWidth <= 0 || totalHeight <= 0 {
+		return nil
+	}
+
+	bounds := canvas.Bounds()
+	x0, y0 := t.Position.X, t.Position.Y
+	x1, y1 := x0+maxWidth, y0+totalHeight
+	if x0 < bounds.Min.X {
+		x0 = bounds.Min.X
+	}
+	if y0 < bounds.Min.Y {
+		y0 = bounds.Min.Y
+	}
+	if x1 > bounds.Max.X {
+		x1 = bounds.Max.X
+	}
+	if y1 > bounds.Max.Y {
+		y1 = bounds.Max.Y
+	}
+	if x1 <= x0 || y1 <= y0 {
+		return nil
+	}
+	w, h := x1-x0, y1-y0
+
+	const s = SupersampleFactor
+	temp := image.NewGray(image.Rect(0, 0, w*s, h*s))
+	for ty := 0; ty < h*s; ty++ {
+		srcY := y0 + ty/s
+		for tx := 0; tx < w*s; tx++ {
+			temp.SetGray(tx, ty, canvas.GrayAt(x0+tx/s, srcY))
+		}
+	}
+
+	d := &xfont.Drawer{Dst: temp, Src: image.NewUniform(gray(t.Color)), Face: t.SuperFont}
+	superAscent := t.SuperFont.Metrics().Ascent.Round()
+	// Line pitch in the supersampled buffer must land on the same real
+	// pixel boundaries as pilLineSpacing(t.Font)*s once downsampled — using
+	// pilLineSpacing(t.SuperFont) directly (the super-sized face's own "A"
+	// glyph bounds + 4) rather than lineHeight*s keeps the per-line
+	// rounding consistent with how it was actually rasterized at 4x, the
+	// same reasoning fontsFromLayout documents for building real
+	// super-sized font faces instead of scaling metrics arithmetically.
+	superSpacing := pilLineSpacing(t.SuperFont)
+	yy := (t.Position.Y - y0) * s // 0 unless the text was clipped at the top
+	for _, line := range lines {
+		d.Dot = fixed.P((t.Position.X-x0)*s, yy+superAscent)
+		d.DrawString(line)
+		yy += superSpacing
+	}
+
+	for ty := 0; ty < h; ty++ {
+		for tx := 0; tx < w; tx++ {
+			sum := 0
+			for sy := 0; sy < s; sy++ {
+				for sx := 0; sx < s; sx++ {
+					sum += int(temp.GrayAt(tx*s+sx, ty*s+sy).Y)
+				}
+			}
+			canvas.SetGray(x0+tx, y0+ty, color.Gray{Y: uint8(sum / (s * s))})
+		}
 	}
 	return nil
 }
@@ -346,6 +491,20 @@ func thresholdTo1Bit(src *image.Gray) *image.Gray {
 	return dst
 }
 
+// DefaultLabelSpacing mirrors components.LabeledValue.__init__'s
+// label_spacing=5 default. Every real construction of a LabeledValue in
+// pwnagotchi/ui/view.py (channel/aps/uptime/shakes) relies on this default
+// and never overrides it — Go has no per-field default value for a struct
+// literal, so any LabeledValue built without explicitly setting
+// LabelSpacing silently gets Go's zero value (0) instead, packing the
+// value flush against the label with no gap at all. Callers must set
+// `LabelSpacing: components.DefaultLabelSpacing` explicitly (verified via
+// a real-Python-rendered golden image in tests/visual/ that a missing
+// gap here is not a hairline difference — small marks like the "*"
+// channel-scanning placeholder visually fuse with the preceding label
+// into what reads as corrupted/garbled text at native resolution).
+const DefaultLabelSpacing = 5
+
 // LabeledValue ports components.LabeledValue.
 type LabeledValue struct {
 	Label        *string
@@ -355,15 +514,19 @@ type LabeledValue struct {
 	TextFont     xfont.Face
 	Color        uint8
 	LabelSpacing int
+
+	// LabelFontSuper/TextFontSuper mirror Text.SuperFont — see there.
+	LabelFontSuper xfont.Face
+	TextFontSuper  xfont.Face
 }
 
 // Draw ports LabeledValue.draw.
 func (lv *LabeledValue) Draw(canvas draw.Image) error {
 	if lv.Label == nil {
-		t := &Text{Value: lv.Value, Position: lv.Position, Font: lv.LabelFont, Color: lv.Color}
+		t := &Text{Value: lv.Value, Position: lv.Position, Font: lv.LabelFont, SuperFont: lv.LabelFontSuper, Color: lv.Color}
 		return t.Draw(canvas)
 	}
-	label := &Text{Value: *lv.Label, Position: lv.Position, Font: lv.LabelFont, Color: lv.Color}
+	label := &Text{Value: *lv.Label, Position: lv.Position, Font: lv.LabelFont, SuperFont: lv.LabelFontSuper, Color: lv.Color}
 	if err := label.Draw(canvas); err != nil {
 		return err
 	}
@@ -371,6 +534,6 @@ func (lv *LabeledValue) Draw(canvas draw.Image) error {
 		X: lv.Position.X + lv.LabelSpacing + 5*len(*lv.Label),
 		Y: lv.Position.Y,
 	}
-	value := &Text{Value: lv.Value, Position: valuePos, Font: lv.TextFont, Color: lv.Color}
+	value := &Text{Value: lv.Value, Position: valuePos, Font: lv.TextFont, SuperFont: lv.TextFontSuper, Color: lv.Color}
 	return value.Draw(canvas)
 }

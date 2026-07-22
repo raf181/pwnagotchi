@@ -47,6 +47,12 @@ type View interface {
 	OnAssoc(ap AP)
 	OnDeauth(sta Station)
 	OnNormal()
+	// OnUploading mirrors View.on_uploading — exposed here (not just on
+	// the concrete *view.View) so native Go plugin ports like
+	// internal/wpasec can show real upload-in-progress status the same
+	// way the real wpa-sec.py plugin's on_internet_available calls
+	// display.on_uploading(...) between handshake uploads.
+	OnUploading(to string)
 }
 
 // EventEmitter mirrors pwnagotchi.plugins.on(event, *args). A real

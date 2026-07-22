@@ -11,6 +11,7 @@ install -m 755 "${DEPLOY_DIR}/scripts/bettercap-launcher" "${ROOTFS_DIR}/usr/bin
 install -m 755 "${DEPLOY_DIR}/scripts/monstart" "${ROOTFS_DIR}/usr/bin/monstart"
 install -m 755 "${DEPLOY_DIR}/scripts/monstop" "${ROOTFS_DIR}/usr/bin/monstop"
 install -m 755 "${DEPLOY_DIR}/scripts/validate-nexmon-runtime" "${ROOTFS_DIR}/usr/local/bin/validate-nexmon-runtime"
+install -m 755 "${DEPLOY_DIR}/scripts/check-kernel-upgrade-safety" "${ROOTFS_DIR}/usr/local/bin/check-kernel-upgrade-safety"
 
 install -m 644 "${DEPLOY_DIR}/systemd/pwnagotchi.service" "${ROOTFS_DIR}/etc/systemd/system/pwnagotchi.service"
 install -m 644 "${DEPLOY_DIR}/systemd/bettercap.service" "${ROOTFS_DIR}/etc/systemd/system/bettercap.service"

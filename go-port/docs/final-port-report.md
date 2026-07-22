@@ -334,6 +334,42 @@ pattern match rather than changing behavior). Full test suite (including
 `-race` and `make compatibility-test`) reverified passing under the new
 Go 1.25 toolchain.
 
+## Session update: onboard WiFi monitor mode (nexmon) — real hardware findings
+
+Deployed and SSH-tested the built image on real Pi Zero 2 W hardware for
+the first time this session (prior sessions only got as far as a
+successful CI build, never a real boot). Found and fixed three real,
+independent bugs blocking monitor mode, none of them hypothetical:
+
+1. `pwnlib`'s `reload_brcm` always failed with "Module brcmfmac is in
+   use" — this kernel splits the onboard chip's driver into `brcmfmac` +
+   a dependent companion module (`brcmfmac_cyw`), and removing a module
+   never cascades to remove its dependents first.
+2. NetworkManager manages `wlan0` by default and holds it even while
+   disconnected, and a separate standalone `wpa_supplicant.service` held
+   it too — either alone blocked the reload regardless of fix #1.
+3. The onboard chip's stock (non-nexmon) firmware genuinely cannot
+   create a monitor interface at all — confirmed directly via `iw phy
+   info` on the real device, not assumed: its supported interface modes
+   list has no `monitor` entry. This is the exact, previously-disclosed
+   nexmon gap in `go-port/deploy/README.md`, now confirmed empirically
+   rather than theoretically.
+
+Porting the original (pre-Go-port) project's own nexmon install (deleted
+from this repo's history, recovered via `git show a15ae8fc`) then
+surfaced a fourth, real, evidence-backed finding:
+`brcmfmac-nexmon-dkms` fails to compile against trixie's default kernel
+(a real `cfg80211`/timer API mismatch, not a config problem) because
+Kali's own package was specifically validated against the 6.12 kernel
+line, not whatever much newer kernel trixie currently ships. Fixed by
+pinning the kernel to Raspberry Pi Foundation's own `bookworm` suite
+(still actively maintained, confirmed live) at build time — see
+`go-port/docs/kernel-nexmon-compatibility.md` for the full evidence
+trail and `go-port/deploy/pi-gen-stage/05a-pin-kernel/`. Not yet
+confirmed working end-to-end on real hardware as of this note; the
+Go port itself is unaffected by any of this — it's entirely
+deployment-image/kernel-driver territory, not application code.
+
 This report will be rewritten (not just appended to) once the port reaches
 a state where "done" per the porting goal's own definition is a defensible
 claim.

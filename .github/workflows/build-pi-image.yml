@@ -139,9 +139,18 @@ jobs:
           # other reason.
           arch-test arm64
 
-      - name: Check out pi-gen (arm64 branch)
+      - name: Check out pi-gen (arm64 branch, pinned)
+        # Pinned to a specific commit (not a floating branch tip) for two
+        # reasons: reproducibility, and so the actions/cache key below is
+        # stable across runs — a floating `--branch arm64` clone would
+        # silently invalidate the cache (or worse, use a stale one against
+        # newer upstream stage scripts) whenever upstream pushes. Bump this
+        # SHA deliberately, not silently, same as BETTERCAP_REF.
+        env:
+          PI_GEN_REF: ca8aeed0ae300c2a89f55ce9617d5f96a27e99e5
         run: |
-          git clone --branch arm64 --depth 1 https://github.com/RPi-Distro/pi-gen.git pi-gen
+          git clone https://github.com/RPi-Distro/pi-gen.git pi-gen
+          git -C pi-gen checkout "${PI_GEN_REF}"
           # pi-gen's own stage2 ships an EXPORT_IMAGE marker (that's how
           # the standard "Raspberry Pi OS Lite" build produces its own
           # image) — since our STAGE_LIST includes stage2 as a base to
@@ -151,6 +160,23 @@ jobs:
           # artifact we don't want. SKIP_IMAGES is pi-gen's own
           # documented mechanism for suppressing that.
           touch pi-gen/stage2/SKIP_IMAGES
+
+      - name: Cache pi-gen work directory (skips stage0-2 rebuild when unchanged)
+        # stage0/prerun.sh only re-runs debootstrap when its ROOTFS_DIR
+        # doesn't already exist — pre-populating work/ from a previous
+        # run's cache is pi-gen's own supported pattern for iterative
+        # local development (see their README), not a hack specific to
+        # this workflow. This is the single biggest cost in the whole
+        # build (~15-20 of the ~44 min stage0-2 takes is debootstrap
+        # alone, plus stage1/2's own package downloads) and it is 100%
+        # independent of anything in go-port/deploy/pi-gen-stage, so
+        # caching it lets iteration on OUR stage skip redoing it.
+        # Keyed on the pinned pi-gen commit + RELEASE so a bump of either
+        # correctly invalidates the cache instead of reusing stale state.
+        uses: actions/cache@v4
+        with:
+          path: pi-gen/work
+          key: pi-gen-work-ca8aeed0ae300c2a89f55ce9617d5f96a27e99e5-trixie
 
       - name: Write pi-gen config
         # Running build.sh directly (not build-docker.sh) means there's
@@ -179,6 +205,16 @@ jobs:
         run: |
           chmod +x build.sh
           sudo ./build.sh
+
+      - name: Fix pi-gen/work ownership for cache save
+        # build.sh runs under sudo, so everything under pi-gen/work ends
+        # up root-owned; actions/cache's post-job save step runs as the
+        # normal runner user and can't read root-owned files, which would
+        # make the cache above silently useless. Runs even when the build
+        # step failed (e.g. our own custom stage) so stage0-2's already
+        # -completed rootfs still gets cached for the next iteration.
+        if: always()
+        run: sudo chown -R "$(id -u):$(id -g)" pi-gen/work
 
       - uses: actions/upload-artifact@v7
         with:

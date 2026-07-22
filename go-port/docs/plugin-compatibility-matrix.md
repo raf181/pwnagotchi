@@ -166,6 +166,7 @@ assumed compatible from architecture alone.
 | `tests/plugins/compat_remaining_bundled_test.go` | The other 18 bundled plugins: real import + real `on_loaded`/`on_config_changed` dispatch, all 18 running concurrently in one bridge, bridge verified still fully responsive afterward |
 | `internal/pyplugin/bridge_test.go` | JSON-arg translation (the `{"__goref__": ...}` stub marker mechanism), no real Python needed |
 | `internal/web/server_test.go`'s `TestLogtailIsNativeGoNotBridge` | `logtail`'s native Go streaming reimplementation |
+| `.github/workflows/build-pi-image.yml`'s "Validate image contents" step + `go-port/deploy/scripts/check-plugins.py` | The same `pwnagotchi.plugins.load()` mechanism this matrix documents, run for real inside the ACTUAL BUILT DEPLOYMENT IMAGE's own chroot (via real `losetup`+`chroot` on the GitHub Actions runner, a real VM — not this dev sandbox, which has no working loop devices at all) — closes the gap between "verified in the dev venv" (everything above) and "verified in the thing that actually gets deployed," without needing real Pi hardware for this specific check |
 
 All of the above run under `make compatibility-test` (build tag
 `compatibility`), which requires the real Python venv per

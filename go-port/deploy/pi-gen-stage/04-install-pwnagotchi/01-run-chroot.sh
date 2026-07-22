@@ -14,15 +14,22 @@
 # with unrelated tooling, so the usual "don't fight the OS package
 # manager" reasoning PEP 668 exists for doesn't apply here.
 #
-# --ignore-installed: real, confirmed failure without it — one of
-# pwnagotchi's own deps (requests) pulls in a newer version than the one
-# apt already installed as a dist-package (/usr/lib/python3/dist-packages,
-# no pip RECORD file since dpkg owns it, not pip). pip's normal upgrade
-# path tries to uninstall the old one first and fails with
-# "uninstall-no-record-file" since it can't account for dpkg-owned files.
-# --ignore-installed skips that uninstall and just shadows it with the
-# venv-less system install's own site-packages copy, which is fine here
-# since this is a single-purpose image, not a shared Python environment.
-pip3 install --break-system-packages --ignore-installed --no-cache-dir /opt/pwnagotchi-src
+# Real, confirmed failure: one of pwnagotchi's own deps (requests) pulls
+# in a newer version than the one apt already installed as a
+# dist-package (/usr/lib/python3/dist-packages, no pip RECORD file since
+# dpkg owns it, not pip). pip's normal upgrade path tries to uninstall
+# the old one first and fails with "uninstall-no-record-file" since it
+# can't account for dpkg-owned files.
+#
+# A blanket `pip install --ignore-installed` "fixes" this but is too
+# broad: it was tried and confirmed to also make pip distrust
+# already-satisfied deps like dbus-python (already provided by the
+# python3-dbus apt package below), forcing a pointless from-source
+# rebuild that then fails needing libglib2.0-dev/meson we don't install.
+# Instead, remove only the actual conflicting apt package first so pip's
+# own upgrade path (no special flag needed) has a clean RECORD-tracked
+# install to replace.
+apt-get remove -y --purge python3-requests
+pip3 install --break-system-packages --no-cache-dir /opt/pwnagotchi-src
 
 install -m 755 /opt/pwnagotchi-go /usr/bin/pwnagotchi-go

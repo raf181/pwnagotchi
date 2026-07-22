@@ -312,6 +312,28 @@ consolidation.** Full details in `docs/rendering-investigation.md` and
    have not been run end-to-end against a live bettercap instance (see #3)
    — only their constituent `internal/agent` methods are unit-tested.
 
+## Session update: fixed a real, pre-existing go.mod bug found via CI
+
+Setting up `.github/workflows/build-pi-image.yml` (a Pi Zero 2 W deployment
+pipeline, see `go-port/deploy/README.md`) surfaced a real, latent bug that
+predates this session: `go-port/go.mod` declared `go 1.19`, but its actual
+resolved dependencies (`golang.org/x/text` v0.40.0, specifically) require
+`go 1.25` to compile — this had been silently masked because the dev
+environment's own locally-installed Go (1.19.8) predates Go's "go
+directive" enforcement mechanism entirely (added in later Go releases) and
+just compiled the newer syntax anyway rather than refusing. GitHub
+Actions' `actions/setup-go`, using a real, current Go toolchain, correctly
+enforced it and failed the build. Fixed: bumped `go.mod` to `go 1.25.0`
+(the real minimum satisfying the whole dependency graph, confirmed via
+`go list -m -f '{{.Path}} {{.Version}} go{{.GoVersion}}' all`), which also
+surfaced one new `go vet` finding under the newer toolchain's printf
+analysis (`internal/voice.Voice.t`'s call to `gotext.Mo.Get` — a real
+false positive, since `gotext.FormatString` special-cases zero variadic
+args to skip `fmt.Sprintf` entirely; fixed by breaking vet's call-shape
+pattern match rather than changing behavior). Full test suite (including
+`-race` and `make compatibility-test`) reverified passing under the new
+Go 1.25 toolchain.
+
 This report will be rewritten (not just appended to) once the port reaches
 a state where "done" per the porting goal's own definition is a defensible
 claim.

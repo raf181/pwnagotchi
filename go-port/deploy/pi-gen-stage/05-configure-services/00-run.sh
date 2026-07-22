@@ -10,6 +10,7 @@ install -m 755 "${DEPLOY_DIR}/scripts/pwnagotchi-launcher" "${ROOTFS_DIR}/usr/bi
 install -m 755 "${DEPLOY_DIR}/scripts/bettercap-launcher" "${ROOTFS_DIR}/usr/bin/bettercap-launcher"
 install -m 755 "${DEPLOY_DIR}/scripts/monstart" "${ROOTFS_DIR}/usr/bin/monstart"
 install -m 755 "${DEPLOY_DIR}/scripts/monstop" "${ROOTFS_DIR}/usr/bin/monstop"
+install -m 755 "${DEPLOY_DIR}/scripts/validate-nexmon-runtime" "${ROOTFS_DIR}/usr/local/bin/validate-nexmon-runtime"
 
 install -m 644 "${DEPLOY_DIR}/systemd/pwnagotchi.service" "${ROOTFS_DIR}/etc/systemd/system/pwnagotchi.service"
 install -m 644 "${DEPLOY_DIR}/systemd/bettercap.service" "${ROOTFS_DIR}/etc/systemd/system/bettercap.service"

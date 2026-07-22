@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+# Real, evidence-gathering validation of the kernel-pin + nexmon setup on
+# actual booted hardware — see docs/kernel-nexmon-compatibility.md for
+# the build-time reasoning this either confirms or disproves. Run as
+# root. Prints PASS/FAIL for each real check; exits nonzero if any
+# check fails. Does not attempt any fix — this only observes and
+# reports, so its output can be trusted as real runtime evidence.
+set -u
+FAIL=0
+check() {
+  local desc="$1"; shift
+  if "$@"; then
+    echo "PASS: ${desc}"
+  else
+    echo "FAIL: ${desc}"
+    FAIL=1
+  fi
+}
+
+echo "=== uname -r ==="
+uname -r
+case "$(uname -r)" in
+  6.12.*+rpt-rpi-v8|6.12.*+rpt-rpi-2712) echo "PASS: running kernel is the pinned 6.12.x line" ;;
+  *) echo "FAIL: running kernel is '$(uname -r)', not the expected pinned 6.12.x line"; FAIL=1 ;;
+esac
+
+echo
+echo "=== held kernel packages (evidence the pin survived to this boot) ==="
+apt-mark showhold
+check "at least one linux-image-* package is held" bash -c "apt-mark showhold | grep -q linux-image"
+
+echo
+echo "=== dkms status ==="
+dkms status
+check "brcmfmac-nexmon shows installed for the running kernel" bash -c "dkms status | grep -q \"brcmfmac-nexmon.*$(uname -r).*installed\""
+
+echo
+echo "=== modinfo brcmfmac (the module actually loaded, not just installed) ==="
+MODPATH="$(modinfo -n brcmfmac 2>/dev/null)"
+echo "module path: ${MODPATH:-<none>}"
+if [ -n "$MODPATH" ]; then
+  modinfo "$MODPATH" 2>&1
+fi
+check "loaded brcmfmac module self-identifies as nexmon-patched" bash -c "[ -n '$MODPATH' ] && modinfo '$MODPATH' 2>/dev/null | grep -qi nexmon"
+
+echo
+echo "=== lsmod (brcmfmac + any companion module, e.g. brcmfmac_cyw) ==="
+lsmod | grep -i brcmfmac || echo "(brcmfmac not currently loaded)"
+
+echo
+echo "=== dmesg brcmfmac/cfg80211 lines (real firmware load evidence) ==="
+dmesg | grep -iE "brcmfmac|cfg80211" | tail -30
+
+echo
+echo "=== iw phy (real hardware capability check — is monitor mode advertised now?) ==="
+iw phy 2>&1
+check "at least one phy advertises monitor mode" bash -c "iw phy | grep -A20 'Supported interface modes' | grep -qi monitor"
+
+echo
+echo "=== iw dev (current interfaces) ==="
+iw dev 2>&1
+
+echo
+echo "=== systemctl --failed (any broken units) ==="
+systemctl --failed --no-legend
+check "no failed systemd units" bash -c "[ -z \"\$(systemctl --failed --no-legend)\" ]"
+
+for svc in bettercap.service pwngrid-peer.service pwnagotchi.service; do
+  check "${svc} is active" systemctl is-active --quiet "$svc"
+done
+
+echo
+echo "=== monitor interface creation (the real thing this whole pin exists for) ==="
+if command -v wlan0mon >/dev/null 2>&1 || ip link show wlan0mon >/dev/null 2>&1; then
+  echo "wlan0mon already exists (bettercap.service presumably created it)"
+  check "wlan0mon is up" bash -c "ip link show wlan0mon | grep -q 'state UP\|UP,'"
+  echo "--- channel switch test ---"
+  if command -v iw >/dev/null 2>&1; then
+    ORIG_CHAN="$(iw dev wlan0mon info 2>/dev/null | awk '/channel/{print $2; exit}')"
+    check "can switch wlan0mon to channel 6" bash -c "iw dev wlan0mon set channel 6"
+    NEW_CHAN="$(iw dev wlan0mon info 2>/dev/null | awk '/channel/{print $2; exit}')"
+    echo "channel before=${ORIG_CHAN:-?} after=${NEW_CHAN:-?}"
+    check "channel actually changed" bash -c "[ -n '$NEW_CHAN' ] && [ '$NEW_CHAN' != '$ORIG_CHAN' -o '$NEW_CHAN' = '6' ]"
+  fi
+  echo "--- timed capture test (5s, tcpdump if available) ---"
+  if command -v tcpdump >/dev/null 2>&1; then
+    CAPFILE="$(mktemp /tmp/nexmon-validate-XXXXXX.pcap)"
+    timeout 5 tcpdump -i wlan0mon -w "$CAPFILE" >/dev/null 2>&1
+    SIZE="$(stat -c%s "$CAPFILE" 2>/dev/null || echo 0)"
+    check "capture file has more than just a pcap header (>24 bytes)" bash -c "[ '$SIZE' -gt 24 ]"
+    echo "capture file size: ${SIZE} bytes at ${CAPFILE}"
+  else
+    echo "SKIP: tcpdump not installed, cannot prove capture produces frames"
+  fi
+else
+  echo "FAIL: wlan0mon does not exist — bettercap.service has not successfully created a monitor interface"
+  FAIL=1
+fi
+
+echo
+echo "=== pwnagotchi web UI reachability ==="
+check "web UI responds on :8080" bash -c "curl -sf -o /dev/null -m 5 http://127.0.0.1:8080/"
+
+echo
+echo "=========================================="
+if [ "$FAIL" -eq 0 ]; then
+  echo "ALL CHECKS PASSED"
+else
+  echo "ONE OR MORE CHECKS FAILED — see FAIL lines above"
+fi
+exit "$FAIL"

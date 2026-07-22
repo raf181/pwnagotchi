@@ -200,6 +200,30 @@ jobs:
           EOF
           chmod +x artifacts/pwnagotchi-go
 
+      - name: Verify pinned kernel package availability before spending 45+ min on a build
+        # Real, fast (seconds) fail-fast check against archive.raspberrypi.com's
+        # actual live Packages indices — the same evidence-gathering approach
+        # docs/kernel-nexmon-compatibility.md's research used manually,
+        # automated here so a future drift (Raspberry Pi Foundation moving
+        # bookworm's own kernel past the nexmon-compatible line, or trixie's
+        # default catching up to make this pin unnecessary) is caught in
+        # seconds, not after a near-hour build fails deep in 06-nexmon.
+        run: |
+          set -e
+          curl -sf https://archive.raspberrypi.com/debian/dists/bookworm/main/binary-arm64/Packages.gz -o /tmp/bookworm-Packages.gz
+          gunzip -f /tmp/bookworm-Packages.gz
+          VER="$(grep -A2 '^Package: linux-image-rpi-v8$' /tmp/bookworm-Packages | awk '/^Version:/{print $2; exit}')"
+          echo "bookworm linux-image-rpi-v8 candidate: ${VER:-<not found>}"
+          case "$VER" in
+            1:6.12.*)
+              echo "OK: bookworm still serves a 6.12.x kernel, the pin in go-port/deploy/pi-gen-stage/05a-pin-kernel/ should still apply cleanly."
+              ;;
+            *)
+              echo "::error::bookworm's linux-image-rpi-v8 is '${VER:-missing}', not a 1:6.12.x version — the kernel pin this build depends on (see go-port/docs/kernel-nexmon-compatibility.md) is stale. Re-investigate before running the full build; do not just retry."
+              exit 1
+              ;;
+          esac
+
       - name: Build image (pi-gen / build.sh)
         working-directory: pi-gen
         run: |
@@ -215,6 +239,133 @@ jobs:
         # -completed rootfs still gets cached for the next iteration.
         if: always()
         run: sudo chown -R "$(id -u):$(id -g)" pi-gen/work
+
+      - name: Validate image contents (kernel pin, nexmon, services, plugins)
+        # Real, no-Pi-hardware-needed verification that build.sh's
+        # success actually produced what deploy/docs/kernel-nexmon-
+        # -compatibility.md claims — a successful image build alone is
+        # not proof of anything about its contents. This runner is a
+        # real VM (unlike the sandbox that designed this pipeline, which
+        # has no working loop devices at all — see deploy/README.md's
+        # own notes on that), so real losetup + chroot works here.
+        # Fails the job if anything checked comes back wrong; results
+        # are also uploaded as an artifact below regardless.
+        run: |
+          set -x
+          IMG_XZ="$(ls pi-gen/deploy/*.img.xz | head -1)"
+          xzcat "$IMG_XZ" > /tmp/validate.img
+          sudo losetup -fP /tmp/validate.img
+          LOOPDEV="$(losetup -j /tmp/validate.img | cut -d: -f1)"
+          sudo partprobe "$LOOPDEV" || true
+          sleep 1
+          BOOT_MNT=/tmp/validate-boot
+          ROOT_MNT=/tmp/validate-root
+          sudo mkdir -p "$BOOT_MNT" "$ROOT_MNT"
+          sudo mount -o ro "${LOOPDEV}p1" "$BOOT_MNT"
+          sudo mount -o ro "${LOOPDEV}p2" "$ROOT_MNT"
+
+          REPORT=/tmp/image-validation-report.txt
+          FAIL=0
+          check() {
+            local desc="$1"; shift
+            if "$@" >>"$REPORT" 2>&1; then
+              echo "PASS: ${desc}" | tee -a "$REPORT"
+            else
+              echo "FAIL: ${desc}" | tee -a "$REPORT"
+              FAIL=1
+            fi
+          }
+          run_chroot() {
+            sudo chroot "$ROOT_MNT" /bin/bash -c "$1"
+          }
+
+          {
+            echo "=== image validation report ==="
+            date -u
+            echo
+            echo "=== dpkg-query: kernel/header package versions ==="
+          } >>"$REPORT"
+          run_chroot "dpkg-query -W -f='\${Package} \${Version}\n' linux-image-rpi-v8 linux-image-rpi-2712 linux-headers-rpi-v8 linux-headers-rpi-2712" >>"$REPORT" 2>&1 || true
+
+          KVER_OK=1
+          run_chroot "dpkg-query -W -f='\${Version}' linux-image-rpi-v8" | grep -q '^1:6\.12\.' || KVER_OK=0
+          if [ "$KVER_OK" = 1 ]; then
+            echo "PASS: linux-image-rpi-v8 installed version is in the pinned 6.12.x line" | tee -a "$REPORT"
+          else
+            echo "FAIL: linux-image-rpi-v8 installed version is NOT in the pinned 6.12.x line" | tee -a "$REPORT"
+            FAIL=1
+          fi
+
+          {
+            echo
+            echo "=== apt-mark showhold ==="
+          } >>"$REPORT"
+          run_chroot "apt-mark showhold" >>"$REPORT" 2>&1
+          check "at least one linux-image-* package is held" bash -c "run_chroot 'apt-mark showhold' | grep -q linux-image"
+
+          {
+            echo
+            echo "=== dkms status ==="
+          } >>"$REPORT"
+          run_chroot "dkms status" >>"$REPORT" 2>&1
+          check "brcmfmac-nexmon shows installed in dkms status" bash -c "run_chroot 'dkms status' | grep -qi brcmfmac-nexmon"
+
+          {
+            echo
+            echo "=== brcmfmac.ko module search + modinfo ==="
+          } >>"$REPORT"
+          MODPATH="$(run_chroot "find /lib/modules -name 'brcmfmac.ko*' 2>/dev/null | head -1")"
+          echo "module path: ${MODPATH:-<none>}" >>"$REPORT"
+          if [ -n "$MODPATH" ]; then
+            run_chroot "modinfo '$MODPATH'" >>"$REPORT" 2>&1
+          fi
+          check "brcmfmac.ko exists in the image" bash -c "[ -n '$MODPATH' ]"
+          check "brcmfmac.ko self-identifies as nexmon-patched" bash -c "[ -n '$MODPATH' ] && run_chroot \"modinfo '$MODPATH'\" | grep -qi nexmon"
+
+          {
+            echo
+            echo "=== systemd service enablement ==="
+          } >>"$REPORT"
+          for svc in bettercap.service pwngrid-peer.service pwnagotchi.service; do
+            run_chroot "systemctl is-enabled $svc" >>"$REPORT" 2>&1
+            check "${svc} is enabled" bash -c "run_chroot 'systemctl is-enabled $svc' | grep -q enabled"
+          done
+
+          {
+            echo
+            echo "=== validate-nexmon-runtime script present ==="
+          } >>"$REPORT"
+          check "validate-nexmon-runtime is installed" sudo test -x "${ROOT_MNT}/usr/local/bin/validate-nexmon-runtime"
+
+          {
+            echo
+            echo "=== real Python plugin bridge: load every bundled plugin (no hardware needed) ==="
+          } >>"$REPORT"
+          sudo cp repo/go-port/deploy/scripts/check-plugins.py "${ROOT_MNT}/tmp/check-plugins.py"
+          run_chroot "python3 /tmp/check-plugins.py" >>"$REPORT" 2>&1 || true
+          sudo rm -f "${ROOT_MNT}/tmp/check-plugins.py"
+          check "plugin bridge loaded at least one plugin in-image" bash -c "grep -q 'LOADED_COUNT=' '$REPORT' && ! grep -q 'LOADED_COUNT=0' '$REPORT'"
+
+          sudo umount "$BOOT_MNT" "$ROOT_MNT"
+          sudo losetup -d "$LOOPDEV"
+
+          echo "=========================================="  | tee -a "$REPORT"
+          if [ "$FAIL" -eq 0 ]; then
+            echo "ALL IMAGE VALIDATION CHECKS PASSED" | tee -a "$REPORT"
+          else
+            echo "ONE OR MORE IMAGE VALIDATION CHECKS FAILED" | tee -a "$REPORT"
+          fi
+          cp "$REPORT" image-validation-report.txt
+          exit "$FAIL"
+
+      - name: Upload image validation report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: image-validation-report
+          path: image-validation-report.txt
+          if-no-files-found: ignore
+          retention-days: 14
 
       - uses: actions/upload-artifact@v7
         with:

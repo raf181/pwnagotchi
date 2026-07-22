@@ -13,19 +13,23 @@
 # non-nexmon firmware package pi-gen's stage2 installs by default
 # (stage2/02-net-tweaks pulls in firmware-brcm80211).
 #
-# KNOWN, UNVERIFIED RISK — disclosed, not silently assumed to work: this
-# script runs inside a QEMU-user-emulated arm64 chroot on the x86_64
-# build host, not on real booted Raspberry Pi hardware. DKMS's default
-# kernel-version targeting uses `uname -r`, which inside this chroot
-# reports the BUILD HOST's own kernel (an unrelated GitHub Actions
-# runner kernel) — not the target's actual linux-image-rpi-v8/rpi-2712
-# kernel that pi-gen's stage0 installs (whose matching
-# linux-headers-rpi-v8/linux-headers-rpi-2712 packages are present in
-# this chroot for exactly this reason). Whether
-# brcmfmac-nexmon-dkms's postinst correctly targets those installed
-# headers instead of blindly trusting uname -r is NOT verified here —
-# that is a real open question the next build+boot test on real
-# hardware needs to answer, not a guarantee this comment is asserting.
+# The original uname-based-kernel-targeting risk this comment used to
+# flag turned out NOT to be the problem — confirmed via a real build:
+# DKMS correctly detected and targeted the actual installed
+# 6.18.34+rpt-rpi-2712/rpi-v8 kernels (not the build host's), so its
+# kernel detection does not simply trust the chroot's own `uname -r`.
+#
+# The real, current, CONFIRMED failure instead: the module build itself
+# fails to compile ("Building module(s)........(bad exit status: 2)").
+# make itself only prints a one-line summary to the install log — the
+# actual compiler error is in DKMS's own make.log, which normally never
+# leaves the chroot before it's torn down on failure. Dumped below on
+# failure so the real error is visible in CI output instead of just the
+# uninformative summary. This kernel (6.18.34) is considerably newer
+# than nexmon upstream's typically-tested kernel range, and nexmon's
+# patches touch driver internals that are known to be kernel-API-version
+# sensitive — a genuine version incompatibility, not a config problem,
+# is a real possibility here and not yet ruled out.
 cd /tmp
 
 curl -LO https://kali.download/kali/pool/non-free-firmware/f/firmware-nexmon/firmware-nexmon_0.2_all.deb
@@ -33,6 +37,10 @@ curl -LO https://http.kali.org/kali/pool/contrib/b/brcmfmac-nexmon-dkms/brcmfmac
 
 apt-get remove -y firmware-brcm80211
 
-dpkg -i firmware-nexmon_0.2_all.deb brcmfmac-nexmon-dkms_6.12.2_all.deb
+if ! dpkg -i firmware-nexmon_0.2_all.deb brcmfmac-nexmon-dkms_6.12.2_all.deb; then
+  echo "=== brcmfmac-nexmon-dkms build failed; dumping DKMS make.log(s) ==="
+  find /var/lib/dkms -name make.log -exec echo "--- {} ---" \; -exec cat {} \;
+  exit 1
+fi
 
 rm -f firmware-nexmon_0.2_all.deb brcmfmac-nexmon-dkms_6.12.2_all.deb

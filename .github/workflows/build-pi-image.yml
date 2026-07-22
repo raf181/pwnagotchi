@@ -1,0 +1,138 @@
+name: Build Raspberry Pi image
+
+# Builds a flashable Raspberry Pi OS Lite (64-bit/arm64) .img.xz with the
+# Go pwnagotchi daemon, bettercap, and pwngrid pre-installed and their
+# systemd services enabled — see go-port/deploy/README.md for the full
+# architecture, what's verified vs. unverified, and the real, disclosed
+# WiFi-monitor-mode/nexmon gap this image does NOT attempt to close.
+#
+# This has NOT been run end-to-end against real Pi Zero 2 W hardware from
+# the environment that authored it — read go-port/deploy/README.md's
+# "Status" section before trusting a build artifact from this workflow.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - go-rebuild
+    paths:
+      - "go-port/**"
+      - ".github/workflows/build-pi-image.yml"
+
+jobs:
+  build-pwnagotchi:
+    name: Cross-compile pwnagotchi (linux/arm64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go-port/go.mod
+
+      - name: Build linux/arm64 binary
+        working-directory: go-port
+        run: |
+          # go-port itself has no cgo dependencies (verified directly —
+          # see deploy/pi-gen-stage/00-install-golang's doc comment for
+          # why that's NOT also true of bettercap, which is built
+          # separately, natively, inside the pi-gen chroot).
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -o pwnagotchi-go ./cmd/pwnagotchi
+          file pwnagotchi-go
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pwnagotchi-go-arm64
+          path: go-port/pwnagotchi-go
+          retention-days: 14
+
+  build-image:
+    name: Build pi-gen image
+    needs: build-pwnagotchi
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: repo
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: pwnagotchi-go-arm64
+          path: artifacts
+
+      - name: Free up runner disk space
+        # pi-gen builds a full Debian-based rootfs image; the hosted
+        # runner's preinstalled toolchains (Android SDK, .NET, several
+        # GHC/Haskell copies, etc.) aren't needed here and easily account
+        # for several GB — removing them is a standard, well-established
+        # pattern for disk-hungry GitHub Actions jobs, not specific to
+        # this workflow.
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
+          df -h /
+
+      - name: Set up QEMU / binfmt for arm64
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Check out pi-gen (arm64 branch)
+        run: |
+          git clone --branch arm64 --depth 1 https://github.com/RPi-Distro/pi-gen.git pi-gen
+          # pi-gen's own stage2 ships an EXPORT_IMAGE marker (that's how
+          # the standard "Raspberry Pi OS Lite" build produces its own
+          # image) — since our STAGE_LIST includes stage2 as a base to
+          # build on top of, without this it would ALSO export a
+          # redundant plain-lite image before continuing on to our
+          # pwnagotchi stage, wasting real build time/disk for an
+          # artifact we don't want. SKIP_IMAGES is pi-gen's own
+          # documented mechanism for suppressing that.
+          touch pi-gen/stage2/SKIP_IMAGES
+
+      - name: Stage pwnagotchi build inputs into the pi-gen tree
+        # build-docker.sh builds pi-gen's OWN directory into a Docker
+        # image (see its own `docker build ... "${DIR}"` call) rather
+        # than bind-mounting arbitrary host paths in, so anything our
+        # custom stage scripts need at build time has to live inside
+        # that tree first — these are the fixed, absolute in-container
+        # paths deploy/pi-gen-stage/04-install-pwnagotchi's scripts
+        # reference via PWNAGOTCHI_REPO_DIR/PWNAGOTCHI_GO_BINARY (set
+        # below, in config).
+        run: |
+          cp -r repo/go-port/deploy/pi-gen-stage pi-gen/stage-pwnagotchi
+          cp -r repo pi-gen/pwnagotchi-repo
+          rm -rf pi-gen/pwnagotchi-repo/.git
+          install -m 755 artifacts/pwnagotchi-go pi-gen/pwnagotchi-go-arm64
+
+      - name: Write pi-gen config
+        run: |
+          cat > pi-gen/config <<'EOF'
+          IMG_NAME=pwnagotchi
+          RELEASE=bookworm
+          DEPLOY_COMPRESSION=xz
+          ENABLE_SSH=1
+          STAGE_LIST="./stage0 ./stage1 ./stage2 ./stage-pwnagotchi"
+          export PWNAGOTCHI_REPO_DIR=/pi-gen/pwnagotchi-repo
+          export PWNAGOTCHI_GO_BINARY=/pi-gen/pwnagotchi-go-arm64
+          EOF
+
+      - name: Build image (pi-gen / build-docker.sh)
+        working-directory: pi-gen
+        run: |
+          chmod +x build-docker.sh
+          ./build-docker.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pwnagotchi-pi-image
+          path: pi-gen/deploy/*.img.xz
+          retention-days: 14
+
+      - name: Upload build log (always, for debugging a failed run)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pi-gen-build-log
+          path: pi-gen/deploy/build.log
+          if-no-files-found: ignore
+          retention-days: 14

@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# Shared shell helpers for the pwnagotchi-launcher/bettercap-launcher
+# systemd ExecStart scripts. Ported from the original pi-gen image's
+# stage3/07-patches/files/pwnlib, trimmed to what this Go-based deployment
+# actually needs: monitor-mode interface setup and auto/manual mode
+# detection. The original's disk-encryption ("crypted mode") support is
+# NOT ported here — internal/cli (the Go daemon) has no equivalent
+# feature, so there is nothing on the Go side for it to gate.
+
+# Reload the Broadcom/Cypress WiFi driver and disable power management.
+# NOTE: this does NOT by itself give you nexmon-grade monitor mode +
+# frame injection on the Pi Zero 2 W's onboard chip — see deploy/README.md's
+# "WiFi monitor mode / nexmon" section for why that's a real, disclosed gap
+# in this image, not something silently assumed to work.
+reload_brcm() {
+  if ! modprobe -r brcmfmac; then
+    return 1
+  fi
+  sleep 1
+  if ! modprobe brcmfmac; then
+    return 1
+  fi
+  sleep 2
+  iw dev wlan0 set power_save off
+  return 0
+}
+
+# Creates the wlan0mon monitor-mode interface bettercap's pwnagotchi-auto/
+# pwnagotchi-manual caplets expect (both hardcode `-iface wlan0mon`).
+start_monitor_interface() {
+  ifconfig wlan0 up
+  sleep 3
+  iw phy "$(iw phy | head -1 | cut -d" " -f2)" interface add wlan0mon type monitor
+  sleep 2
+  rfkill unblock all
+  ifconfig wlan0 down
+  ifconfig wlan0mon up
+  iw dev wlan0mon set power_save off
+}
+
+stop_monitor_interface() {
+  ifconfig wlan0mon down && iw dev wlan0mon del
+  reload_brcm
+  ifconfig wlan0 up
+}
+
+is_interface_up() {
+  if grep -qi 'up' /sys/class/net/"$1"/operstate 2>/dev/null; then
+    return 0
+  fi
+  return 1
+}
+
+# Mirrors the original launcher's mode detection: an explicit override
+# file wins, then a real Ethernet/USB-gadget link (you're plugged in to
+# manage it directly) implies manual mode, otherwise auto.
+#
+# Deliberate fix vs. the original stage3/07-patches/files/pwnlib: its
+# eth0 branch's comment ("if eth0 is up ... we're in MANU") didn't match
+# its own code (`return 0`, i.e. AUTO) — usb0 correctly returned 1/MANU,
+# eth0 didn't. This is new deployment tooling, not a Python-compatibility
+# port with a behavior contract to preserve bug-for-bug, so this
+# implements what the comment actually says was intended (eth0 up -> MANU)
+# rather than silently carrying the old mismatch forward unexplained.
+is_auto_mode() {
+  if [ -f /root/.pwnagotchi-manual ]; then
+    return 1
+  fi
+  if [ -f /root/.pwnagotchi-auto ]; then
+    return 0
+  fi
+  if is_interface_up usb0; then
+    return 1
+  fi
+  if is_interface_up eth0; then
+    return 1
+  fi
+  return 0
+}

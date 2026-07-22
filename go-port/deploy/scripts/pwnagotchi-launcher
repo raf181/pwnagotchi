@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# ExecStart for pwnagotchi.service. Picks auto vs. manual mode the same
+# way the original Python image's launcher did (see pwnlib), then execs
+# the real Go binary directly — no Python entrypoint indirection needed
+# anymore, since internal/cli (go-port) is the actual daemon now.
+source /usr/bin/pwnlib
+
+if is_auto_mode; then
+  exec /usr/bin/pwnagotchi-go
+else
+  exec /usr/bin/pwnagotchi-go --manual
+fi

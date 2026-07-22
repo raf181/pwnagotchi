@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Referenced by config.toml's main.mon_stop_cmd default
+# ("/usr/bin/monstop") — internal/agent shells out to this on demand.
+source /usr/bin/pwnlib
+stop_monitor_interface

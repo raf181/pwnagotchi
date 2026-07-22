@@ -1,0 +1,6 @@
+build-essential
+git
+pkg-config
+libpcap-dev
+libusb-1.0-0-dev
+libnetfilter-queue-dev

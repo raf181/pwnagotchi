@@ -1,0 +1,18 @@
+[Unit]
+Description=pwnagotchi (Go port) - Deep Reinforcement Learning instrumenting bettercap for WiFi pwning.
+Documentation=https://github.com/jayofelony/pwnagotchi
+Wants=network.target
+After=pwngrid-peer.service bettercap.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/pwnagotchi-launcher
+Restart=always
+RestartSec=30
+TasksMax=infinity
+LimitNPROC=infinity
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

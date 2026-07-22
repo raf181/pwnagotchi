@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# ExecStart for bettercap.service: brings up the wlan0mon monitor
+# interface the pwnagotchi-auto/pwnagotchi-manual caplets expect, then
+# execs the real bettercap binary. Mirrors the original image's
+# bettercap-launcher; the disk-encryption ("crypted mode") wait loop from
+# the original is not ported — see pwnlib's own note on why.
+source /usr/bin/pwnlib
+
+reload_brcm
+start_monitor_interface
+
+if is_auto_mode; then
+  exec /usr/local/bin/bettercap -no-colors -caplet pwnagotchi-auto -iface wlan0mon
+else
+  exec /usr/local/bin/bettercap -no-colors -caplet pwnagotchi-manual -iface wlan0mon
+fi

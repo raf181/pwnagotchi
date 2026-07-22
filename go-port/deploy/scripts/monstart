@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Referenced by config.toml's main.mon_start_cmd default
+# ("/usr/bin/monstart") — internal/agent shells out to this on demand.
+source /usr/bin/pwnlib
+start_monitor_interface

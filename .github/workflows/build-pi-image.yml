@@ -103,7 +103,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            quilt parted coreutils qemu-user-binfmt debootstrap zerofree zip \
+            quilt parted coreutils qemu-user-binfmt qemu-user-static debootstrap zerofree zip \
             dosfstools e2fsprogs libcap2-bin libarchive-tools grep rsync \
             xz-utils curl xxd file git kmod bc gpg pigz arch-test
           sudo modprobe binfmt_misc || true
@@ -112,6 +112,13 @@ jobs:
           # emulation genuinely doesn't work on this runner for some
           # other reason.
           arch-test arm64
+          # debootstrap's own cross-arch bootstrap step needs a real
+          # STATIC qemu-aarch64-static binary to copy into the target
+          # rootfs for its second-stage chroot execution — plain
+          # qemu-user-binfmt (registration only) isn't sufficient by
+          # itself, confirmed via a real failed run
+          # ("E: Unable to execute target architecture" from debootstrap).
+          test -x /usr/bin/qemu-aarch64-static
 
       - name: Check out pi-gen (arm64 branch)
         run: |
@@ -135,7 +142,11 @@ jobs:
         run: |
           cat > pi-gen/config <<EOF
           IMG_NAME=pwnagotchi
-          RELEASE=bookworm
+          # The arm64 branch's stage0/prerun.sh expects specifically
+          # "trixie" (Debian 13) - confirmed via a real run's own
+          # warning: "RELEASE does not match the intended option for
+          # this branch" when this was set to bookworm.
+          RELEASE=trixie
           DEPLOY_COMPRESSION=xz
           ENABLE_SSH=1
           STAGE_LIST="./stage0 ./stage1 ./stage2 ${GITHUB_WORKSPACE}/repo/go-port/deploy/pi-gen-stage"

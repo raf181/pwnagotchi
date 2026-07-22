@@ -79,9 +79,18 @@ jobs:
           df -h /
 
       - name: Set up QEMU / binfmt for arm64
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
+        # NOT docker/setup-qemu-action: pi-gen's own build-docker.sh (arm64
+        # branch) does a preflight check on the RUNNER itself, before
+        # Docker even starts — `which qemu-aarch64`, failing with "qemu-
+        # aarch64 not found (please install qemu-user-binfmt)" if absent.
+        # Confirmed via a real failed run: setup-qemu-action's own binfmt
+        # registration mechanism doesn't put a `qemu-aarch64` binary on
+        # PATH the way build-docker.sh's plain `which` check expects, so
+        # this installs literally the package its own error message names.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-user-binfmt
+          which qemu-aarch64
 
       - name: Check out pi-gen (arm64 branch)
         run: |

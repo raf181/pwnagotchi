@@ -120,6 +120,20 @@ jobs:
           sudo modprobe binfmt_misc || true
           grep -q /proc/sys/fs/binfmt_misc /proc/mounts || sudo mount binfmt_misc -t binfmt_misc /proc/sys/fs/binfmt_misc
           test -x /usr/bin/qemu-aarch64-static
+          # pi-gen's own dependencies_check (scripts/dependencies_check,
+          # run inside build.sh) probes for a BARE `qemu-arm` binary as
+          # its proxy for "is qemu-user support installed" (real content:
+          # `hash qemu-arm`, suggesting the qemu-user-binfmt package by
+          # name if missing) — confirmed via a real failed run
+          # ("Required dependencies not installed... qemu-user-binfmt")
+          # even though real arm64 emulation already works via
+          # qemu-user-static's -static-suffixed binaries. Rather than
+          # reinstall the conflicting package, symlink the bare names it
+          # actually checks for.
+          test -x /usr/bin/qemu-arm-static
+          sudo ln -sf /usr/bin/qemu-aarch64-static /usr/bin/qemu-aarch64
+          sudo ln -sf /usr/bin/qemu-arm-static /usr/bin/qemu-arm
+          hash qemu-arm
           # Fail fast here (seconds) instead of after a ~90min build if
           # emulation genuinely doesn't work on this runner for some
           # other reason.

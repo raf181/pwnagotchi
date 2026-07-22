@@ -100,15 +100,21 @@ not stubbed out, so it becomes a real capability — not just
 architecturally ready for one — the moment this image gains nexmon
 support. Options for getting there, not attempted here:
 
-- Apply nexmon separately, post-boot, following the upstream
-  [nexmon](https://github.com/seemoo-lab/nexmon) project's own
-  instructions for your kernel version — nexmon does support this exact
-  chip (BCM43430A1), but integrating a kernel-version-specific patched
-  firmware + driver into this build is a substantial separate effort,
-  not attempted in this pipeline yet.
 - Use a USB WiFi adapter with a chipset that supports monitor mode +
-  injection natively (no nexmon needed) — this is now the preferred
-  path automatically whenever one is present.
+  injection natively (no nexmon needed) — this is the preferred path
+  automatically whenever one is present, and needs nothing further.
+- **On the `fix-internal-antenna` branch**: `pi-gen-stage/06-nexmon`
+  installs prebuilt nexmon-patched firmware + a DKMS-packaged
+  nexmon-patched `brcmfmac` module for this exact chip (BCM43430A1),
+  ported from the original (pre-Go-port) image's
+  `stage3/04-nexmon/01-run-chroot.sh`. This has a real, disclosed,
+  **unverified** risk: it builds the DKMS module inside a QEMU-emulated
+  chroot on the build host, and DKMS's default `uname -r`-based kernel
+  targeting could pick the *build host's* kernel instead of the target's
+  installed `linux-image-rpi-v8`/`rpi-2712` kernel — whether the
+  package's postinst actually targets the right one instead is something
+  only a real build + boot test can confirm, not something this comment
+  guarantees.
 
 ## Architecture
 
@@ -127,6 +133,8 @@ go-port/deploy/
                               dependency) + copies in the pre-cross-compiled Go binary
     05-configure-services/ — installs systemd units + launcher scripts, enables services,
                               sets hostname (see below for why that specifically matters)
+    06-nexmon/              — (fix-internal-antenna branch only) nexmon for the onboard chip,
+                              see "WiFi monitor mode / nexmon" above for the disclosed risk
   systemd/                — pwnagotchi.service, bettercap.service, pwngrid-peer.service
   scripts/                — pwnlib, pwnagotchi-launcher, bettercap-launcher, monstart, monstop
 ```

@@ -28,6 +28,13 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go-port/go.mod
+          # setup-go's cache looks for go.sum from the repo root by
+          # default; ours is at go-port/go.sum, not the root — without
+          # this it silently fails to find a cache key (a real,
+          # confirmed warning: "Restore cache failed: Dependencies file
+          # is not found... Supported file pattern: go.sum") and
+          # re-downloads every dependency from scratch on every run.
+          cache-dependency-path: go-port/go.sum
 
       - name: Build linux/arm64 binary
         working-directory: go-port

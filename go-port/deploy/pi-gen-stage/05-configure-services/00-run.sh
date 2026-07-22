@@ -15,6 +15,15 @@ install -m 644 "${DEPLOY_DIR}/systemd/pwnagotchi.service" "${ROOTFS_DIR}/etc/sys
 install -m 644 "${DEPLOY_DIR}/systemd/bettercap.service" "${ROOTFS_DIR}/etc/systemd/system/bettercap.service"
 install -m 644 "${DEPLOY_DIR}/systemd/pwngrid-peer.service" "${ROOTFS_DIR}/etc/systemd/system/pwngrid-peer.service"
 
+# Real, confirmed-on-hardware bug: NetworkManager manages wlan0 by
+# default on this OS release and keeps an open handle on it even while
+# disconnected/"unavailable" — this alone was enough to make
+# pwnlib's reload_brcm fail with "Module brcmfmac is in use" on every
+# single boot, before monitor mode setup ever got a chance to run.
+install -d "${ROOTFS_DIR}/etc/NetworkManager/conf.d"
+install -m 644 "${DEPLOY_DIR}/network-manager/99-unmanaged-wlan0.conf" \
+  "${ROOTFS_DIR}/etc/NetworkManager/conf.d/99-unmanaged-wlan0.conf"
+
 install -d "${ROOTFS_DIR}/etc/pwnagotchi/log"
 install -d "${ROOTFS_DIR}/etc/pwnagotchi/handshakes"
 install -d "${ROOTFS_DIR}/etc/pwnagotchi/conf.d"

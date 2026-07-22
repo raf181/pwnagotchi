@@ -12,7 +12,19 @@
 # frame injection on the Pi Zero 2 W's onboard chip — see deploy/README.md's
 # "WiFi monitor mode / nexmon" section for why that's a real, disclosed gap
 # in this image, not something silently assumed to work.
+#
+# Real, confirmed-on-hardware bug this fixes: on this kernel the onboard
+# chip's driver is split into brcmfmac + a chip-specific companion module
+# (e.g. brcmfmac_cyw for the Cypress-family chip on the Pi Zero 2 W) that
+# depends on brcmfmac. `modprobe -r brcmfmac` alone always failed with
+# "Module brcmfmac is in use", since removing a module never cascades to
+# remove its own dependents first — whatever's using it has to go first.
 reload_brcm() {
+  local users
+  users=$(awk '/^brcmfmac /{print $4}' /proc/modules | tr ',' ' ')
+  for m in $users; do
+    [ -n "$m" ] && modprobe -r "$m"
+  done
   if ! modprobe -r brcmfmac; then
     return 1
   fi
@@ -25,23 +37,82 @@ reload_brcm() {
   return 0
 }
 
+# Picks which physical radio to use for monitor mode: a real external USB
+# adapter if one is present, otherwise the onboard chip. Detects "external"
+# by driver name (anything not brcmfmac) rather than interface name (wlan1,
+# wlx..., etc. all vary by adapter/udev), so this doesn't depend on what a
+# given adapter happens to be named.
+#
+# Real, confirmed-on-hardware limitation this exists for: the onboard Pi
+# Zero 2 W chip's stock (non-nexmon) firmware does not support a monitor
+# interface at all — `iw phy info` on it lists only IBSS/managed/AP/
+# P2P-client/P2P-GO/P2P-device as supported interface modes, no monitor.
+# Preferring an external adapter (which typically supports monitor mode
+# natively) means the device is actually usable today; the onboard-chip
+# path below is kept working (not stubbed out) so it becomes real, not
+# just architecturally ready, the moment this image gains nexmon support.
+select_wifi_iface() {
+  local ifpath iface driver
+  for ifpath in /sys/class/net/wlan*; do
+    [ -e "$ifpath" ] || continue
+    iface=$(basename "$ifpath")
+    driver=$(basename "$(readlink -f "${ifpath}/device/driver" 2>/dev/null)" 2>/dev/null)
+    if [ -n "$driver" ] && [ "$driver" != "brcmfmac" ]; then
+      echo "$iface"
+      return 0
+    fi
+  done
+  echo "wlan0"
+}
+
 # Creates the wlan0mon monitor-mode interface bettercap's pwnagotchi-auto/
-# pwnagotchi-manual caplets expect (both hardcode `-iface wlan0mon`).
+# pwnagotchi-manual caplets expect (both hardcode `-iface wlan0mon`), on
+# whichever radio select_wifi_iface picked.
 start_monitor_interface() {
-  ifconfig wlan0 up
+  local base_iface
+  base_iface=$(select_wifi_iface)
+
+  ifconfig "$base_iface" up
   sleep 3
-  iw phy "$(iw phy | head -1 | cut -d" " -f2)" interface add wlan0mon type monitor
-  sleep 2
-  rfkill unblock all
-  ifconfig wlan0 down
-  ifconfig wlan0mon up
-  iw dev wlan0mon set power_save off
+
+  if [ "$base_iface" = "wlan0" ]; then
+    iw phy "$(iw phy | head -1 | cut -d" " -f2)" interface add wlan0mon type monitor
+    sleep 2
+    rfkill unblock all
+    ifconfig wlan0 down
+    ifconfig wlan0mon up
+    iw dev wlan0mon set power_save off
+  else
+    # External adapters generally don't support a second concurrent
+    # virtual interface the way brcmfmac does for AP/managed/etc. -
+    # instead they switch their one real interface's type directly.
+    # Recorded so stop_monitor_interface can restore it correctly
+    # instead of assuming it was always the onboard chip.
+    echo "$base_iface" > /run/pwnagotchi-mon-base-iface
+    ifconfig "$base_iface" down
+    iw dev "$base_iface" set type monitor
+    ip link set "$base_iface" name wlan0mon
+    sleep 1
+    rfkill unblock all
+    ifconfig wlan0mon up
+    iw dev wlan0mon set power_save off
+  fi
 }
 
 stop_monitor_interface() {
-  ifconfig wlan0mon down && iw dev wlan0mon del
-  reload_brcm
-  ifconfig wlan0 up
+  if [ -f /run/pwnagotchi-mon-base-iface ]; then
+    local orig
+    orig=$(cat /run/pwnagotchi-mon-base-iface)
+    ifconfig wlan0mon down
+    iw dev wlan0mon set type managed
+    ip link set wlan0mon name "$orig"
+    ifconfig "$orig" up
+    rm -f /run/pwnagotchi-mon-base-iface
+  else
+    ifconfig wlan0mon down && iw dev wlan0mon del
+    reload_brcm
+    ifconfig wlan0 up
+  fi
 }
 
 is_interface_up() {

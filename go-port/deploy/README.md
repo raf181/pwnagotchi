@@ -59,19 +59,56 @@ scripts: a kernel-module patch built against a specific kernel version,
 genuinely one of the most fragile, hardware/firmware-version-specific
 parts of the entire original build.
 
-**This pipeline does not attempt to rebuild that.** `pwnlib`'s
-`reload_brcm`/`start_monitor_interface` (ported from the original) will
-create a `wlan0mon` interface using the stock `brcmfmac` driver, but
-without nexmon, real frame injection / full monitor-mode capture on the
-Pi Zero 2 W's onboard chip is **not guaranteed to work** — this mirrors
-exactly why real pwnagotchi has always needed nexmon in the first place.
-Options, not attempted here:
+**This pipeline does not attempt to rebuild that, and the gap is now
+confirmed on real hardware, not just theoretical.** A built image was
+flashed and booted on an actual Pi Zero 2 W: `iw phy info` for the
+onboard chip (a Broadcom BCM43430/1, stock non-nexmon firmware
+`brcmfmac43430-sdio`) lists its supported interface modes as `IBSS,
+managed, AP, P2P-client, P2P-GO, P2P-device` — **monitor is not in that
+list at all**. `iw phy <phy> interface add wlan0mon type monitor` fails
+outright with `Operation not supported (-95)`; this is cfg80211
+rejecting the request before it ever reaches the driver, not a
+config/permissions issue. Two independent, unrelated bugs were also
+found and fixed along the way (both real prerequisites, neither
+sufficient by itself to create monitor mode on this chip):
+
+- `reload_brcm`'s `modprobe -r brcmfmac` always failed with "Module
+  brcmfmac is in use" — this kernel splits the onboard chip's driver
+  into `brcmfmac` + a chip-specific companion module (`brcmfmac_cyw`
+  for the Cypress-family chip on the Pi Zero 2 W) that depends on it;
+  the dependent has to be removed first. Fixed by reading `/proc/modules`
+  for whatever's actually listed as using `brcmfmac` and removing those
+  first, rather than hardcoding `brcmfmac_cyw`.
+- NetworkManager manages `wlan0` by default and keeps a handle on it even
+  while disconnected, and a separate standalone `wpa_supplicant.service`
+  (independent of NetworkManager) held it too — either alone was enough
+  to block the reload. Fixed at image-build time: an
+  `unmanaged-devices=interface-name:wlan0` NetworkManager conf.d drop-in
+  (`deploy/network-manager/99-unmanaged-wlan0.conf`), and
+  `systemctl mask wpa_supplicant.service` in `05-configure-services`.
+
+`pwnlib`'s `select_wifi_iface` now prefers a real external USB WiFi
+adapter over the onboard chip whenever one is plugged in (detected by
+driver name — anything not `brcmfmac` — not by interface name, since
+that varies by adapter/udev), and falls back to the onboard chip
+otherwise. Most monitor-capable USB chipsets switch their one real
+interface's type directly (no second virtual interface, unlike
+`brcmfmac`'s AP/managed/IBSS/P2P-only virtual-interface support), which
+`start_monitor_interface`/`stop_monitor_interface` now handle as a
+separate code path. The onboard-chip path is deliberately kept working,
+not stubbed out, so it becomes a real capability — not just
+architecturally ready for one — the moment this image gains nexmon
+support. Options for getting there, not attempted here:
 
 - Apply nexmon separately, post-boot, following the upstream
   [nexmon](https://github.com/seemoo-lab/nexmon) project's own
-  instructions for your kernel version.
+  instructions for your kernel version — nexmon does support this exact
+  chip (BCM43430A1), but integrating a kernel-version-specific patched
+  firmware + driver into this build is a substantial separate effort,
+  not attempted in this pipeline yet.
 - Use a USB WiFi adapter with a chipset that supports monitor mode +
-  injection natively (no nexmon needed) instead of the onboard radio.
+  injection natively (no nexmon needed) — this is now the preferred
+  path automatically whenever one is present.
 
 ## Architecture
 

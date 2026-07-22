@@ -102,23 +102,28 @@ jobs:
         # build-docker.sh's bundled Dockerfile to provide them.
         run: |
           sudo apt-get update
+          # qemu-user-binfmt and qemu-user-static CONFLICT with each
+          # other on this Ubuntu release (confirmed via a real failed
+          # run: "qemu-user-binfmt : Conflicts: qemu-user-static" /
+          # vice versa, apt refusing to install both). qemu-user-static
+          # is the one that actually matters: it provides the real
+          # static qemu-aarch64-static binary debootstrap's own
+          # cross-arch bootstrap step needs to copy into the target
+          # rootfs for second-stage chroot execution (confirmed via an
+          # earlier failed run without it: "E: Unable to execute target
+          # architecture"), and its own postinst does real binfmt_misc
+          # registration too, same as qemu-user-binfmt would have.
           sudo apt-get install -y \
-            quilt parted coreutils qemu-user-binfmt qemu-user-static debootstrap zerofree zip \
+            quilt parted coreutils qemu-user-static debootstrap zerofree zip \
             dosfstools e2fsprogs libcap2-bin libarchive-tools grep rsync \
             xz-utils curl xxd file git kmod bc gpg pigz arch-test
           sudo modprobe binfmt_misc || true
           grep -q /proc/sys/fs/binfmt_misc /proc/mounts || sudo mount binfmt_misc -t binfmt_misc /proc/sys/fs/binfmt_misc
+          test -x /usr/bin/qemu-aarch64-static
           # Fail fast here (seconds) instead of after a ~90min build if
           # emulation genuinely doesn't work on this runner for some
           # other reason.
           arch-test arm64
-          # debootstrap's own cross-arch bootstrap step needs a real
-          # STATIC qemu-aarch64-static binary to copy into the target
-          # rootfs for its second-stage chroot execution — plain
-          # qemu-user-binfmt (registration only) isn't sufficient by
-          # itself, confirmed via a real failed run
-          # ("E: Unable to execute target architecture" from debootstrap).
-          test -x /usr/bin/qemu-aarch64-static
 
       - name: Check out pi-gen (arm64 branch)
         run: |

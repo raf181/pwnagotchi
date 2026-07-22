@@ -78,34 +78,40 @@ jobs:
           sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
           df -h /
 
-      - name: Install qemu-aarch64 (satisfies pi-gen's own preflight check)
-        # pi-gen's build-docker.sh (arm64 branch) checks `which
-        # qemu-aarch64` on the RUNNER itself, before Docker even starts —
-        # confirmed via a real failed run without this: "qemu-aarch64 not
-        # found (please install qemu-user-binfmt)". This alone is NOT
-        # sufficient for arm64 binaries to actually execute inside the
-        # nested `--privileged` container build-docker.sh launches (also
-        # confirmed via a real failed run: registration succeeded but
-        # "arm64: not supported on this machine/kernel" at actual exec
-        # time) — see the next step for that part.
+      - name: Install pi-gen's own real dependencies (build.sh, not build-docker.sh)
+        # Real, confirmed finding (not a guess): pi-gen's build-docker.sh
+        # wraps the whole build in an ADDITIONAL, nested --privileged
+        # Docker container. Two different binfmt_misc registration
+        # mechanisms (apt's qemu-user-binfmt postinst, and separately
+        # docker/setup-qemu-action's tonistiigi/binfmt "F"-flag registration)
+        # both registered successfully on the runner but real arm64
+        # execution INSIDE that nested container still failed identically
+        # both times ("arm64: not supported on this machine/kernel", from
+        # pi-gen's own arch-test check) — this is a documented
+        # Docker-in-Docker binfmt limitation other projects hit too (see
+        # e.g. armbian/build#8154, where the maintainers confirm
+        # "Docker-in-Docker is not supported" for exactly this reason and
+        # that their own real GitHub Actions builds run directly on the
+        # runner VM, not nested in Docker).
+        #
+        # GitHub Actions' hosted runners ARE real (Ubuntu) VMs, not
+        # containers — so running pi-gen's build.sh DIRECTLY (no Docker
+        # wrapper at all) avoids the nesting problem entirely. This
+        # installs exactly pi-gen's own documented dependency list
+        # (arm64-branch `depends` file) instead of relying on
+        # build-docker.sh's bundled Dockerfile to provide them.
         run: |
           sudo apt-get update
-          sudo apt-get install -y qemu-user-binfmt
-          which qemu-aarch64
-
-      - name: Register binfmt_misc handlers (robust, nested-container-safe)
-        # docker/setup-qemu-action wraps tonistiigi/binfmt, which
-        # registers with the "F" (fix-binary) flag — the interpreter
-        # binary is opened and held open at registration time, so it
-        # keeps working even from inside a later, nested
-        # --privileged container that can't necessarily re-resolve the
-        # same path itself. Plain `apt install qemu-user-binfmt`'s
-        # postinst registration (the previous step) does not use this
-        # flag, which is exactly what left real arm64 execution broken
-        # even though the `which qemu-aarch64` preflight check passed.
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
+          sudo apt-get install -y \
+            quilt parted coreutils qemu-user-binfmt debootstrap zerofree zip \
+            dosfstools e2fsprogs libcap2-bin libarchive-tools grep rsync \
+            xz-utils curl xxd file git kmod bc gpg pigz arch-test
+          sudo modprobe binfmt_misc || true
+          grep -q /proc/sys/fs/binfmt_misc /proc/mounts || sudo mount binfmt_misc -t binfmt_misc /proc/sys/fs/binfmt_misc
+          # Fail fast here (seconds) instead of after a ~90min build if
+          # emulation genuinely doesn't work on this runner for some
+          # other reason.
+          arch-test arm64
 
       - name: Check out pi-gen (arm64 branch)
         run: |
@@ -120,38 +126,29 @@ jobs:
           # documented mechanism for suppressing that.
           touch pi-gen/stage2/SKIP_IMAGES
 
-      - name: Stage pwnagotchi build inputs into the pi-gen tree
-        # build-docker.sh builds pi-gen's OWN directory into a Docker
-        # image (see its own `docker build ... "${DIR}"` call) rather
-        # than bind-mounting arbitrary host paths in, so anything our
-        # custom stage scripts need at build time has to live inside
-        # that tree first — these are the fixed, absolute in-container
-        # paths deploy/pi-gen-stage/04-install-pwnagotchi's scripts
-        # reference via PWNAGOTCHI_REPO_DIR/PWNAGOTCHI_GO_BINARY (set
-        # below, in config).
-        run: |
-          cp -r repo/go-port/deploy/pi-gen-stage pi-gen/stage-pwnagotchi
-          cp -r repo pi-gen/pwnagotchi-repo
-          rm -rf pi-gen/pwnagotchi-repo/.git
-          install -m 755 artifacts/pwnagotchi-go pi-gen/pwnagotchi-go-arm64
-
       - name: Write pi-gen config
+        # Running build.sh directly (not build-docker.sh) means there's
+        # no separate container filesystem to stage files into first —
+        # real absolute runner paths work directly, including for
+        # STAGE_LIST (documented to accept arbitrary paths, not just
+        # ones under pi-gen's own tree).
         run: |
-          cat > pi-gen/config <<'EOF'
+          cat > pi-gen/config <<EOF
           IMG_NAME=pwnagotchi
           RELEASE=bookworm
           DEPLOY_COMPRESSION=xz
           ENABLE_SSH=1
-          STAGE_LIST="./stage0 ./stage1 ./stage2 ./stage-pwnagotchi"
-          export PWNAGOTCHI_REPO_DIR=/pi-gen/pwnagotchi-repo
-          export PWNAGOTCHI_GO_BINARY=/pi-gen/pwnagotchi-go-arm64
+          STAGE_LIST="./stage0 ./stage1 ./stage2 ${GITHUB_WORKSPACE}/repo/go-port/deploy/pi-gen-stage"
+          export PWNAGOTCHI_REPO_DIR=${GITHUB_WORKSPACE}/repo
+          export PWNAGOTCHI_GO_BINARY=${GITHUB_WORKSPACE}/artifacts/pwnagotchi-go
           EOF
+          chmod +x artifacts/pwnagotchi-go
 
-      - name: Build image (pi-gen / build-docker.sh)
+      - name: Build image (pi-gen / build.sh)
         working-directory: pi-gen
         run: |
-          chmod +x build-docker.sh
-          ./build-docker.sh
+          chmod +x build.sh
+          sudo ./build.sh
 
       - uses: actions/upload-artifact@v4
         with:
@@ -160,10 +157,14 @@ jobs:
           retention-days: 14
 
       - name: Upload build log (always, for debugging a failed run)
+        # Direct build.sh (unlike build-docker.sh, which rsyncs it to
+        # deploy/ itself as a convenience) writes its log to
+        # $WORK_DIR/build.log, i.e. pi-gen/work/<IMG_NAME>/build.log —
+        # IMG_NAME=pwnagotchi per the config written above.
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: pi-gen-build-log
-          path: pi-gen/deploy/build.log
+          path: pi-gen/work/pwnagotchi/build.log
           if-no-files-found: ignore
           retention-days: 14

@@ -14,22 +14,23 @@
 # (stage2/02-net-tweaks pulls in firmware-brcm80211).
 #
 # The original uname-based-kernel-targeting risk this comment used to
-# flag turned out NOT to be the problem — confirmed via a real build:
-# DKMS correctly detected and targeted the actual installed
-# 6.18.34+rpt-rpi-2712/rpi-v8 kernels (not the build host's), so its
-# kernel detection does not simply trust the chroot's own `uname -r`.
+# flag was confirmed NOT to be the problem — a real build showed DKMS
+# correctly detects and targets the actual installed kernel headers
+# (not the build host's own uname -r).
 #
-# The real, current, CONFIRMED failure instead: the module build itself
-# fails to compile ("Building module(s)........(bad exit status: 2)").
-# make itself only prints a one-line summary to the install log — the
-# actual compiler error is in DKMS's own make.log, which normally never
-# leaves the chroot before it's torn down on failure. Dumped below on
-# failure so the real error is visible in CI output instead of just the
-# uninformative summary. This kernel (6.18.34) is considerably newer
-# than nexmon upstream's typically-tested kernel range, and nexmon's
-# patches touch driver internals that are known to be kernel-API-version
-# sensitive — a genuine version incompatibility, not a config problem,
-# is a real possibility here and not yet ruled out.
+# The real, CONFIRMED, now-FIXED failure: the DKMS module build failed
+# to compile against trixie's default kernel (1:6.18.34-1+rpt1) —
+# del_timer_sync/from_timer implicit-declaration errors and
+# cfg80211_ops incompatible-pointer-type errors, i.e. a genuine kernel
+# API version mismatch, not a config problem. Kali's own blog
+# (kali.org/blog/raspberry-pi-wi-fi-glow-up) confirms
+# brcmfmac-nexmon-dkms was specifically validated against the 6.12
+# kernel line (they were stuck on 5.15 for over a year because 6.6
+# broke nexmon, and only 6.12 was confirmed stable) — hence
+# 05a-pin-kernel, which runs before this stage and pins the kernel to
+# archive.raspberrypi.com's bookworm suite (1:6.12.93-1+rpt1 as of this
+# writing) instead of trixie's. See
+# docs/kernel-nexmon-compatibility.md for the full evidence trail.
 cd /tmp
 
 curl -LO https://kali.download/kali/pool/non-free-firmware/f/firmware-nexmon/firmware-nexmon_0.2_all.deb
@@ -44,3 +45,36 @@ if ! dpkg -i firmware-nexmon_0.2_all.deb brcmfmac-nexmon-dkms_6.12.2_all.deb; th
 fi
 
 rm -f firmware-nexmon_0.2_all.deb brcmfmac-nexmon-dkms_6.12.2_all.deb
+
+# Verify the module actually exists for the pinned kernel and is
+# loadable metadata-wise — do not just trust dpkg's exit code. modinfo
+# is given the .ko path directly (not -k/module-name, which would fall
+# back to this chroot's own uname -r, i.e. the build host's unrelated
+# kernel) so this check is meaningful under QEMU-chroot too.
+echo "=== dkms status (evidence) ==="
+dkms status
+
+TARGET_KVER="$(dpkg-query -W -f='${Package}\n' 'linux-image-6.12.*+rpt-rpi-v8' | head -1 | sed 's/^linux-image-//')"
+if [ -z "$TARGET_KVER" ]; then
+  echo "FATAL: could not determine the pinned kernel version to verify the built module against." >&2
+  exit 1
+fi
+
+depmod -a "$TARGET_KVER"
+
+MODULE_PATH="$(find "/lib/modules/${TARGET_KVER}" -name 'brcmfmac.ko*' 2>/dev/null | head -1)"
+if [ -z "$MODULE_PATH" ]; then
+  echo "FATAL: no brcmfmac.ko found under /lib/modules/${TARGET_KVER} after a reported-successful DKMS install." >&2
+  find "/lib/modules/${TARGET_KVER}" -iname "*brcmfmac*" 2>&1
+  exit 1
+fi
+
+echo "=== modinfo for the built module (evidence) ==="
+modinfo "$MODULE_PATH"
+
+if ! modinfo "$MODULE_PATH" | grep -qi nexmon; then
+  echo "FATAL: ${MODULE_PATH} does not identify itself as nexmon-patched (no 'nexmon' string in modinfo output) — this may be the stock module, not the patched one." >&2
+  exit 1
+fi
+
+echo "Confirmed: nexmon-patched brcmfmac.ko built for ${TARGET_KVER} at ${MODULE_PATH}"

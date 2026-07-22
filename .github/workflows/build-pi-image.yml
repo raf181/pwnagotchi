@@ -23,9 +23,9 @@ jobs:
     name: Cross-compile pwnagotchi (linux/arm64)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go-port/go.mod
           # setup-go's cache looks for go.sum from the repo root by
@@ -46,7 +46,7 @@ jobs:
           CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -o pwnagotchi-go ./cmd/pwnagotchi
           file pwnagotchi-go
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: pwnagotchi-go-arm64
           path: go-port/pwnagotchi-go
@@ -58,11 +58,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 300
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: repo
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: pwnagotchi-go-arm64
           path: artifacts
@@ -150,7 +150,7 @@ jobs:
           chmod +x build.sh
           sudo ./build.sh
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: pwnagotchi-pi-image
           path: pi-gen/deploy/*.img.xz
@@ -162,7 +162,7 @@ jobs:
         # $WORK_DIR/build.log, i.e. pi-gen/work/<IMG_NAME>/build.log —
         # IMG_NAME=pwnagotchi per the config written above.
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pi-gen-build-log
           path: pi-gen/work/pwnagotchi/build.log

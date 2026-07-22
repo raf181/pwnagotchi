@@ -13,6 +13,15 @@
 # specific origin+suite - this is not a distribution-wide downgrade.
 # See go-port/docs/kernel-nexmon-compatibility.md for the full evidence
 # trail (exact apt-cache madison/policy output, not just this summary).
+#
+# Real, confirmed CI finding: priority 990 was NOT enough. Per
+# apt_preferences(5), priority in (500,990] "causes a version to be
+# installed unless ... the installed version is more recent" - since
+# pi-gen's stage0 already installs trixie's newer 6.18.34 kernel BEFORE
+# this stage runs, 990 left apt-cache policy's own Candidate: on
+# 6.18.34 despite bookworm's 6.12.93 correctly showing priority 990 in
+# the version table. Only priority >1000 ("install even if this
+# constitutes a downgrade") actually forces the downgrade.
 Package: linux-image-* linux-headers-*
 Pin: release o=Raspberry Pi Foundation, n=bookworm
-Pin-Priority: 990
+Pin-Priority: 1001

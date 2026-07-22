@@ -110,9 +110,17 @@ the case where that inference turns out wrong.
    already installs — no new key to trust.
 2. Adds an apt preferences pin (`files/90-nexmon-kernel-pin`) scoped to
    `Package: linux-image-* linux-headers-*` from
-   `release o=Raspberry Pi Foundation, n=bookworm` at priority 990 — high
-   enough to win over trixie's own (lower, default-priority) candidate
-   for just these package names, nothing else.
+   `release o=Raspberry Pi Foundation, n=bookworm`, for just these
+   package names, nothing else. **Real CI finding, not a first-try
+   success**: priority 990 was tried first and confirmed insufficient —
+   `apt-cache policy` showed bookworm's `1:6.12.93` correctly at
+   priority 990 in the version table, but `Candidate:` stayed on
+   trixie's `1:6.18.34` regardless, because pi-gen's stage0 already
+   installs trixie's kernel *before* this stage runs, and per
+   `apt_preferences(5)`, priority in `(500,990]` explicitly won't
+   downgrade an already-installed newer version — only `>1000`
+   ("install even if this constitutes a downgrade") does. Fixed by
+   raising the pin to `1001`.
 3. `apt-get install --allow-downgrades` the pinned kernel/headers,
    replacing whatever trixie's stage0 already installed.
 4. Fails the build immediately (`exit 1`, before attempting the install)

@@ -13,6 +13,16 @@
 # built for one job, not a general-purpose Python environment shared
 # with unrelated tooling, so the usual "don't fight the OS package
 # manager" reasoning PEP 668 exists for doesn't apply here.
-pip3 install --break-system-packages --no-cache-dir /opt/pwnagotchi-src
+#
+# --ignore-installed: real, confirmed failure without it — one of
+# pwnagotchi's own deps (requests) pulls in a newer version than the one
+# apt already installed as a dist-package (/usr/lib/python3/dist-packages,
+# no pip RECORD file since dpkg owns it, not pip). pip's normal upgrade
+# path tries to uninstall the old one first and fails with
+# "uninstall-no-record-file" since it can't account for dpkg-owned files.
+# --ignore-installed skips that uninstall and just shadows it with the
+# venv-less system install's own site-packages copy, which is fine here
+# since this is a single-purpose image, not a shared Python environment.
+pip3 install --break-system-packages --ignore-installed --no-cache-dir /opt/pwnagotchi-src
 
 install -m 755 /opt/pwnagotchi-go /usr/bin/pwnagotchi-go

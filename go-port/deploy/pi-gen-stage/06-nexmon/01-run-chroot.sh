@@ -57,7 +57,11 @@ dkms status
 # Same fix as 05a-pin-kernel: the compound glob matched nothing via
 # dpkg -l's pattern engine even though the broader pattern did — reuse
 # the broader one and filter -rpi-v8 in bash.
-TARGET_KVER="$(dpkg -l 'linux-image-6.12.*' 2>/dev/null | awk '/^ii/{print $2}' | grep -- '-rpi-v8$' | head -1 | sed 's/^linux-image-//')"
+# Same fix as 05a-pin-kernel: dpkg -l pattern matching produced empty
+# output for reasons that didn't reproduce under manual reasoning about
+# fnmatch semantics. /lib/modules/ is the actual ground truth here;
+# read it directly instead of going through dpkg as an indirect proxy.
+TARGET_KVER="$(ls /lib/modules/ 2>/dev/null | grep -E '^6\.12\.[0-9]+\+rpt-rpi-v8$' | head -1)"
 if [ -z "$TARGET_KVER" ]; then
   echo "FATAL: could not determine the pinned kernel version to verify the built module against." >&2
   exit 1

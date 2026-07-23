@@ -88,7 +88,12 @@ ls -la /lib/modules/ 2>&1
 # moments earlier in this same script run. Reusing that proven pattern
 # and filtering the -rpi-v8 specificity in bash instead of trusting a
 # more elaborate dpkg glob.
-REAL_KVER="$(dpkg -l 'linux-image-6.12.*' 2>/dev/null | awk '/^ii/{print $2}' | grep -- '-rpi-v8$' | head -1 | sed 's/^linux-image-//')"
+# Real, confirmed CI finding: two consecutive attempts at deriving this
+# via dpkg -l pattern matching both produced empty output for reasons
+# that didn't reproduce under manual reasoning about fnmatch semantics -
+# not worth a third guess. /lib/modules/ is the actual ground truth this
+# whole check exists to verify in the first place; read it directly.
+REAL_KVER="$(ls /lib/modules/ 2>/dev/null | grep -E '^6\.12\.[0-9]+\+rpt-rpi-v8$' | head -1)"
 if [ -z "$REAL_KVER" ] || [ ! -d "/lib/modules/${REAL_KVER}/build" ]; then
   echo "FATAL: /lib/modules/${REAL_KVER}/build does not exist — the pinned headers did not link up correctly, DKMS in the next stage would fail or silently target the wrong kernel." >&2
   exit 1

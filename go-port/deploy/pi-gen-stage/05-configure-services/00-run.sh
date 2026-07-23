@@ -38,6 +38,17 @@ install -d "${ROOTFS_DIR}/etc/NetworkManager/system-connections"
 install -m 600 "${DEPLOY_DIR}/network-manager/usb0.nmconnection" \
   "${ROOTFS_DIR}/etc/NetworkManager/system-connections/usb0.nmconnection"
 
+# Real, confirmed-on-hardware gap: this image shipped with swap
+# effectively disabled (rpi-swap's own config commented out,
+# zram-generator explicitly disabling zram0 unless configured) — see
+# ../../rpi-swap/10-enable-zram.conf's own comment for why that's a
+# real problem on a 512MB-RAM Pi Zero 2 W running bettercap + the Go
+# daemon + the Python plugin bridge + a freshly built nexmon module
+# concurrently at boot.
+install -d "${ROOTFS_DIR}/etc/rpi/swap.conf.d"
+install -m 644 "${DEPLOY_DIR}/rpi-swap/10-enable-zram.conf" \
+  "${ROOTFS_DIR}/etc/rpi/swap.conf.d/10-enable-zram.conf"
+
 install -d "${ROOTFS_DIR}/etc/pwnagotchi/log"
 install -d "${ROOTFS_DIR}/etc/pwnagotchi/handshakes"
 install -d "${ROOTFS_DIR}/etc/pwnagotchi/conf.d"

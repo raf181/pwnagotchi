@@ -23,3 +23,19 @@ systemctl enable pwnagotchi.service
 # unit's very first real boot.
 echo "pwnagotchi" > /etc/hostname
 sed -i "s/127.0.1.1.*/127.0.1.1\tpwnagotchi/" /etc/hosts
+
+# USB gadget networking (see 00-run.sh's usb0.nmconnection install) — the
+# real original project's own approach, ported from the deleted
+# builder's sdcard/boot/cmdline.txt (git show 0fdc2b6d:sdcard/boot/
+# cmdline.txt): dtoverlay=dwc2 puts the USB controller into gadget/OTG
+# mode, modules-load=dwc2,g_ether loads the actual Ethernet-gadget
+# kernel module at boot. Neither was present in this image before —
+# only [cm4]/[cm5]/[pi5]-conditional overlays existed in config.txt,
+# none of which apply to the Pi Zero 2 W, so USB gadget networking
+# never worked at all, independent of anything else.
+if ! grep -q "^dtoverlay=dwc2$" /boot/firmware/config.txt; then
+  echo "dtoverlay=dwc2" >> /boot/firmware/config.txt
+fi
+if ! grep -q "modules-load=dwc2,g_ether" /boot/firmware/cmdline.txt; then
+  sed -i "s/\$/ modules-load=dwc2,g_ether/" /boot/firmware/cmdline.txt
+fi

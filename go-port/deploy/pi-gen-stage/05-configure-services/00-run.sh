@@ -26,6 +26,18 @@ install -d "${ROOTFS_DIR}/etc/NetworkManager/conf.d"
 install -m 644 "${DEPLOY_DIR}/network-manager/99-unmanaged-wlan0.conf" \
   "${ROOTFS_DIR}/etc/NetworkManager/conf.d/99-unmanaged-wlan0.conf"
 
+# USB gadget networking (usb0, static 10.0.0.2) — the real, original
+# pwnagotchi project's own standard "plug into a computer via USB, ssh
+# pi@10.0.0.2" connectivity path, ported from the deleted original
+# builder's config (git show c340de23:builder/data/etc/network/
+# interfaces.d/usb0-cfg for the address scheme this matches) — as a
+# NetworkManager keyfile connection instead of the original's ifupdown
+# config, consistent with how this pipeline already manages wlan0.
+# NetworkManager requires keyfile connections to be exactly 0600.
+install -d "${ROOTFS_DIR}/etc/NetworkManager/system-connections"
+install -m 600 "${DEPLOY_DIR}/network-manager/usb0.nmconnection" \
+  "${ROOTFS_DIR}/etc/NetworkManager/system-connections/usb0.nmconnection"
+
 install -d "${ROOTFS_DIR}/etc/pwnagotchi/log"
 install -d "${ROOTFS_DIR}/etc/pwnagotchi/handshakes"
 install -d "${ROOTFS_DIR}/etc/pwnagotchi/conf.d"

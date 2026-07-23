@@ -76,6 +76,26 @@ apt-mark hold $HELD_PACKAGES
 echo "=== held packages (evidence) ==="
 apt-mark showhold
 
+# Real, confirmed CI finding: leaving trixie's old 6.18.34 kernel
+# image/headers installed alongside the pinned 6.12.93 ones (we only
+# re-pointed the meta-packages and downgraded/held them — nothing
+# removed the old real packages) breaks nexmon in 06-nexmon: DKMS's
+# postinst builds against EVERY installed kernel's headers it finds
+# under /usr/src, not just the one the meta-packages point to. The
+# 6.12.93 build succeeded cleanly (confirmed, exit code 0, for both
+# rpi-v8 and rpi-2712) but the ALSO-attempted 6.18.34 build still hits
+# the original cfg80211/timer API errors and fails the whole `dpkg -i`.
+# Purging the old kernel outright — not just superseding it — is what
+# "pin to 6.12.x" actually requires here.
+OLD_KERNEL_PACKAGES="$(dpkg -l 'linux-image-6.18.*' 'linux-headers-6.18.*' 'linux-kbuild-6.18.*' 2>/dev/null | awk '/^ii/{print $2}')"
+if [ -n "$OLD_KERNEL_PACKAGES" ]; then
+  echo "=== purging superseded trixie kernel packages (evidence) ==="
+  # shellcheck disable=SC2086
+  apt-get purge -y $OLD_KERNEL_PACKAGES
+else
+  echo "No 6.18.x kernel packages found to purge (already clean, or naming changed — verify against evidence above)."
+fi
+
 echo "=== /boot/firmware kernel image files after pin (evidence) ==="
 ls -la /boot/firmware/*.img /boot/firmware/kernel*.img 2>&1 || true
 

@@ -81,7 +81,14 @@ ls -la /boot/firmware/*.img /boot/firmware/kernel*.img 2>&1 || true
 
 echo "=== /lib/modules for the pinned kernel (evidence DKMS will need this) ==="
 ls -la /lib/modules/ 2>&1
-REAL_KVER="$(dpkg -l 'linux-image-6.12.*+rpt-rpi-v8' 2>/dev/null | awk '/^ii/{print $2}' | head -1 | sed 's/^linux-image-//')"
+# Real, confirmed CI finding: this more-specific compound glob
+# ('linux-image-6.12.*+rpt-rpi-v8') matched nothing via dpkg -l's own
+# pattern engine, even though the broader 'linux-image-6.12.*' (used
+# above for HELD_PACKAGES) demonstrably matched the exact same package
+# moments earlier in this same script run. Reusing that proven pattern
+# and filtering the -rpi-v8 specificity in bash instead of trusting a
+# more elaborate dpkg glob.
+REAL_KVER="$(dpkg -l 'linux-image-6.12.*' 2>/dev/null | awk '/^ii/{print $2}' | grep -- '-rpi-v8$' | head -1 | sed 's/^linux-image-//')"
 if [ -z "$REAL_KVER" ] || [ ! -d "/lib/modules/${REAL_KVER}/build" ]; then
   echo "FATAL: /lib/modules/${REAL_KVER}/build does not exist — the pinned headers did not link up correctly, DKMS in the next stage would fail or silently target the wrong kernel." >&2
   exit 1

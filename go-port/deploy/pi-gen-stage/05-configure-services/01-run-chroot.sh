@@ -33,9 +33,51 @@ sed -i "s/127.0.1.1.*/127.0.1.1\tpwnagotchi/" /etc/hosts
 # only [cm4]/[cm5]/[pi5]-conditional overlays existed in config.txt,
 # none of which apply to the Pi Zero 2 W, so USB gadget networking
 # never worked at all, independent of anything else.
-if ! grep -q "^dtoverlay=dwc2$" /boot/firmware/config.txt; then
-  echo "dtoverlay=dwc2" >> /boot/firmware/config.txt
+#
+# dr_mode=peripheral (not bare dtoverlay=dwc2, which leaves dr_mode on
+# ID-pin auto-negotiation/OTG): real-hardware testing through a USB-C
+# dock/hub (not a direct port) repeatedly showed the gadget enumerate
+# correctly at the USB descriptor level but never assert carrier —
+# consistent with OTG ID-pin sensing being ambiguous through an
+# intermediary hub. Forcing peripheral mode explicitly removes that
+# ambiguity. Not yet independently confirmed to be necessary on its own
+# (tested together with dwc2.lpm_enable=0 below and the usb0 interface
+# fixes in 00-run.sh); kept because it matches the deployment topology
+# actually being tested against (laptop dock, not a bare port) and has
+# no downside for a device-only Pi Zero 2 W gadget port.
+if ! grep -q "^dtoverlay=dwc2,dr_mode=peripheral$" /boot/firmware/config.txt; then
+  echo "dtoverlay=dwc2,dr_mode=peripheral" >> /boot/firmware/config.txt
+fi
+# dwc_otg.lpm_enable=0 (dwc2 on this modern kernel, dwc_otg was the
+# legacy driver name) — present in the real original project's own
+# cmdline.txt (git show 0fdc2b6d:sdcard/boot/cmdline.txt) and never
+# ported over until now. Disables USB Link Power Management, a
+# well-documented Raspberry Pi gadget-mode fix for exactly the symptom
+# seen here: the gadget enumerates but the link never stabilizes.
+if ! grep -q "dwc2.lpm_enable=0" /boot/firmware/cmdline.txt; then
+  sed -i "s/^/dwc2.lpm_enable=0 /" /boot/firmware/cmdline.txt
 fi
 if ! grep -q "modules-load=dwc2,g_ether" /boot/firmware/cmdline.txt; then
   sed -i "s/\$/ modules-load=dwc2,g_ether/" /boot/firmware/cmdline.txt
 fi
+
+# Real, confirmed-on-hardware bug: a stock systemd udev rule
+# (/usr/lib/systemd/network/73-usb-net-by-mac.link, Debian/systemd
+# upstream, not ours) renames ANY USB network device to a MAC-based
+# name (matches Path=*-usb-*) before NetworkManager ever sees it —
+# including g_ether's gadget interface, which the kernel initially
+# names "usb0". Since usb0.nmconnection matches on the literal name
+# "usb0" (see 00-run.sh), the by-mac rename meant that profile could
+# never actually apply. A higher-priority (lower-numbered, sorts first)
+# .link file pinning the gadget interface's name back to "usb0" fixes
+# this. Matches on the g_ether driver specifically, not just any USB
+# net device, so it doesn't affect the TP-Link USB-Ethernet adapter or
+# anything else plugged into a real USB port.
+install -d /etc/systemd/network
+cat > /etc/systemd/network/70-usb0.link <<'EOF'
+[Match]
+Driver=g_ether
+
+[Link]
+Name=usb0
+EOF

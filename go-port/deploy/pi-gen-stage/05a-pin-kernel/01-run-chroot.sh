@@ -123,3 +123,41 @@ if [ -z "$REAL_KVER" ] || [ ! -d "/lib/modules/${REAL_KVER}/build" ]; then
   exit 1
 fi
 echo "Confirmed: /lib/modules/${REAL_KVER}/build exists"
+
+# Real, confirmed-on-hardware bug (the actual root cause of the entire
+# "boots but nothing works" saga this pin exists to prevent): pinning
+# and purging the kernel PACKAGES above only changes dpkg/apt state and
+# /lib/modules — it does NOT touch /boot/firmware/kernel8.img or
+# kernel_2712.img, the actual binaries the Pi's bootloader loads. Those
+# files are written by an earlier pi-gen stage from whatever kernel was
+# default AT THAT TIME (trixie's 6.18.x) and nothing downstream ever
+# regenerates them after this stage changes which kernel is installed.
+# Confirmed by direct evidence: /lib/modules/ and dpkg both correctly
+# showed only 6.12.93 after this stage ran, yet the real booted Pi
+# reported `uname -r` 6.18.34 (via modprobe's own "module not found in
+# /lib/modules/6.18.34..." error) — a stale, never-updated boot image
+# sitting alongside correctly-pinned packages. Copy the real kernel
+# binaries into place explicitly; this is what the Raspberry Pi
+# Foundation's own kernel packages would normally do via a postinst
+# hook that assumes it's running with a real bootloader partition
+# mounted, which does not hold inside a pi-gen chroot.
+REAL_KVER_2712="$(ls /lib/modules/ 2>/dev/null | grep -E '^6\.12\.[0-9]+\+rpt-rpi-2712$' | head -1)"
+if [ -z "$REAL_KVER_2712" ] || [ ! -f "/boot/vmlinuz-${REAL_KVER_2712}" ]; then
+  echo "FATAL: /boot/vmlinuz-${REAL_KVER_2712} does not exist — cannot regenerate kernel_2712.img." >&2
+  exit 1
+fi
+if [ ! -f "/boot/vmlinuz-${REAL_KVER}" ]; then
+  echo "FATAL: /boot/vmlinuz-${REAL_KVER} does not exist — cannot regenerate kernel8.img." >&2
+  exit 1
+fi
+cp "/boot/vmlinuz-${REAL_KVER}" /boot/firmware/kernel8.img
+cp "/boot/vmlinuz-${REAL_KVER_2712}" /boot/firmware/kernel_2712.img
+[ -f "/boot/initrd.img-${REAL_KVER}" ] && cp "/boot/initrd.img-${REAL_KVER}" /boot/firmware/initramfs8
+[ -f "/boot/initrd.img-${REAL_KVER_2712}" ] && cp "/boot/initrd.img-${REAL_KVER_2712}" /boot/firmware/initramfs_2712
+echo "=== kernel image files after regeneration (evidence) ==="
+sha256sum "/boot/vmlinuz-${REAL_KVER}" /boot/firmware/kernel8.img
+sha256sum "/boot/vmlinuz-${REAL_KVER_2712}" /boot/firmware/kernel_2712.img
+if [ "$(sha256sum < "/boot/vmlinuz-${REAL_KVER}")" != "$(sha256sum < /boot/firmware/kernel8.img)" ]; then
+  echo "FATAL: kernel8.img does not match the pinned kernel's vmlinuz after copying." >&2
+  exit 1
+fi

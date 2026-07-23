@@ -1,5 +1,6 @@
 [connection]
 id=usb0
+uuid=d519e3b4-82cb-4d8f-8b01-5fd0cbd2234d
 type=ethernet
 interface-name=usb0
 autoconnect=true

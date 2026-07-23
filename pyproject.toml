@@ -35,7 +35,7 @@ classifiers = [
 version = {attr = "pwnagotchi.__version__"}
 
 [tool.setuptools.packages.find]
-include = ["pwnagotchi"]
+include = ["pwnagotchi*"]
 exclude = ["stage3"]
 
 [project.urls]

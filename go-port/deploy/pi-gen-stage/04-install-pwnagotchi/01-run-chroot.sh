@@ -29,7 +29,26 @@
 # Instead, remove only the actual conflicting apt package first so pip's
 # own upgrade path (no special flag needed) has a clean RECORD-tracked
 # install to replace.
-apt-get remove -y --purge python3-requests
+#
+# Real, confirmed-on-hardware bug (same root cause, more packages than
+# just python3-requests): requests hard-requires urllib3, certifi,
+# charset_normalizer, idna (imports them directly, not optional); flask
+# hard-requires blinker and jinja2 (which itself needs MarkupSafe). At
+# the time pip ran, apt-provided python3-* packages satisfied ALL of
+# these requirements, so pip skipped installing its own RECORD-tracked
+# copies of any of them. The LATER export-image stage's `apt-get
+# dist-upgrade --auto-remove --purge` (see pi-gen's export-image/
+# 05-finalise) then removed every one of those apt packages as orphaned
+# once python3-requests — their direct user, purged below — was gone,
+# leaving 7 of the 8 default bundled plugins (every one except `cache`,
+# which has no such dependency) failing with `No module named 'X'` at
+# runtime. Confirmed via a real chroot+pip3 install against a booted
+# card's rootfs: exactly these 6 packages (plus MarkupSafe, pulled in
+# transitively by jinja2) were missing and nothing else was, after
+# installing urllib3 and MarkupSafe surfaced the next layer of the same
+# problem for flask's own hard dependencies.
+apt-get remove -y --purge python3-requests python3-urllib3 python3-markupsafe \
+  python3-certifi python3-charset-normalizer python3-idna python3-blinker python3-jinja2 2>/dev/null || true
 pip3 install --break-system-packages --no-cache-dir /opt/pwnagotchi-src
 
 install -m 755 /opt/pwnagotchi-go /usr/bin/pwnagotchi-go

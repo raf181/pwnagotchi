@@ -150,19 +150,48 @@ build host's own unrelated `uname -r`) and confirms it self-identifies as
 nexmon-patched (`modinfo | grep -qi nexmon`) rather than trusting `dpkg`'s
 exit code alone.
 
+## Build confirmed working end-to-end (real evidence, not projected)
+
+The pin + purge fix (see commit history: priority 990→1001, dpkg -l
+wildcard fixes, and the `06-nexmon` old-kernel purge) was validated by a
+**full local pi-gen build** (not CI — a real KVM VM with working loop
+devices, since neither this repo's original authoring sandbox nor
+GitHub Actions runners gave fast enough iteration for the number of
+real bugs this took to shake out). Real, observed results:
+
+- `apt-get install --allow-downgrades` correctly landed
+  `linux-image-rpi-v8`/`rpi-2712` and their headers on `1:6.12.93-1+rpt1`.
+- The old `1:6.18.34-1+rpt1` kernel/header packages were purged (`apt-get
+  purge`, ~134 MB freed) — confirmed necessary: DKMS's postinst builds
+  against *every* installed kernel's headers under `/usr/src`, not just
+  the one the meta-packages point to, so leaving the old kernel installed
+  (even just superseded/held, not removed) made the overall `dpkg -i`
+  fail even though the 6.12.93 build itself succeeded.
+- `brcmfmac-nexmon-dkms` compiled cleanly against **both**
+  `6.12.93+rpt-rpi-v8` and `6.12.93+rpt-rpi-2712` — real `make` output,
+  `# exit code: 0` for both, no `cfg80211`/timer API errors this time.
+- This session's own build-time verification step (`modinfo` on the
+  built `.ko`, checking for the `nexmon` string) passed for real:
+  `Confirmed: nexmon-patched brcmfmac.ko built for 6.12.93+rpt-rpi-v8`.
+- `pi-gen`'s own `export-image` stage completed (`[HH:MM:SS] Build
+  finished`), producing a real, complete `.img.xz` (~780 MB), which was
+  transferred back and flashed to a physical SD card.
+
+This resolves the "not yet build-tested" uncertainty from this
+document's first version — the pin is now proven to produce a working
+build artifact, not just a theory backed by partial CI evidence.
+
 ## Still open — real risks not yet resolved by this pin
 
-- **Not yet build-tested.** This document was written immediately after
-  designing the fix, before the next CI run confirms it. Do not treat
-  "the evidence supports this approach" as "this is proven to work" —
-  see the CI run referenced in this repo's commit history for the actual
-  result.
-- **Not yet boot-tested on real hardware.** Whether the pinned kernel
-  actually boots the Pi Zero 2 W, whether `/boot/firmware` ends up
-  correctly referencing it, and whether the nexmon module actually loads
-  and creates a working monitor interface at runtime are all real,
-  separate questions a build-time chroot check cannot answer — see
-  the target-runtime validation script/results for that evidence.
+- **Not yet boot-tested on real hardware.** The image above was flashed
+  to a physical SD card but has not yet been booted in the target Pi
+  Zero 2 W as of this note — whether the pinned kernel actually boots,
+  whether `/boot/firmware` ends up correctly referencing it, and whether
+  the nexmon module actually loads and creates a working monitor
+  interface at runtime are real, separate questions a build succeeding
+  cannot answer by itself. See the target-runtime validation script
+  (`deploy/scripts/validate-nexmon-runtime`) and its actual output on
+  real hardware for that evidence once available.
 - **Whether `brcmfmac_cyw` (the Cypress-family companion module found
   splitting `brcmfmac` on the previously-tested `6.18.34` kernel — see
   `deploy/README.md`'s WiFi monitor mode section) exists on `6.12.93` at

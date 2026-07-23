@@ -54,10 +54,18 @@ esac
 # silently pull trixie's newer, nexmon-incompatible kernel back in.
 # Reversible via `apt-mark unhold` — this is not a distribution-wide
 # freeze, just these specific packages.
-HELD_PACKAGES="$(dpkg-query -W -f='${Package}\n' \
-  'linux-image-rpi-v8' 'linux-image-rpi-2712' \
+#
+# Real, confirmed CI finding: dpkg-query -W lists ANY package name dpkg
+# has SOME record of matching the pattern (e.g.
+# linux-image-6.12.93+rpt-rpi-v8-unsigned — a name dpkg apparently knows
+# of but that is neither installed nor has a candidate here), not just
+# ones actually installed. Passing that to apt-mark hold failed with
+# "Can't select installed nor candidate version". `dpkg -l | awk
+# '/^ii/'` only matches packages in the real "installed" state.
+HELD_PACKAGES="$(dpkg -l 'linux-image-rpi-v8' 'linux-image-rpi-2712' \
   'linux-headers-rpi-v8' 'linux-headers-rpi-2712' \
-  'linux-image-6.12.*' 'linux-headers-6.12.*' 2>/dev/null)"
+  'linux-image-6.12.*' 'linux-headers-6.12.*' 2>/dev/null \
+  | awk '/^ii/{print $2}')"
 if [ -z "$HELD_PACKAGES" ]; then
   echo "FATAL: no kernel packages matched for apt-mark hold — refusing to continue with an unprotected pin." >&2
   exit 1
@@ -73,7 +81,7 @@ ls -la /boot/firmware/*.img /boot/firmware/kernel*.img 2>&1 || true
 
 echo "=== /lib/modules for the pinned kernel (evidence DKMS will need this) ==="
 ls -la /lib/modules/ 2>&1
-REAL_KVER="$(dpkg-query -W -f='${Package}\n' 'linux-image-6.12.*+rpt-rpi-v8' | head -1 | sed 's/^linux-image-//')"
+REAL_KVER="$(dpkg -l 'linux-image-6.12.*+rpt-rpi-v8' 2>/dev/null | awk '/^ii/{print $2}' | head -1 | sed 's/^linux-image-//')"
 if [ -z "$REAL_KVER" ] || [ ! -d "/lib/modules/${REAL_KVER}/build" ]; then
   echo "FATAL: /lib/modules/${REAL_KVER}/build does not exist — the pinned headers did not link up correctly, DKMS in the next stage would fail or silently target the wrong kernel." >&2
   exit 1

@@ -54,7 +54,7 @@ rm -f firmware-nexmon_0.2_all.deb brcmfmac-nexmon-dkms_6.12.2_all.deb
 echo "=== dkms status (evidence) ==="
 dkms status
 
-TARGET_KVER="$(dpkg-query -W -f='${Package}\n' 'linux-image-6.12.*+rpt-rpi-v8' | head -1 | sed 's/^linux-image-//')"
+TARGET_KVER="$(dpkg -l 'linux-image-6.12.*+rpt-rpi-v8' 2>/dev/null | awk '/^ii/{print $2}' | head -1 | sed 's/^linux-image-//')"
 if [ -z "$TARGET_KVER" ]; then
   echo "FATAL: could not determine the pinned kernel version to verify the built module against." >&2
   exit 1

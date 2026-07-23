@@ -60,12 +60,16 @@ esac
 # linux-image-6.12.93+rpt-rpi-v8-unsigned — a name dpkg apparently knows
 # of but that is neither installed nor has a candidate here), not just
 # ones actually installed. Passing that to apt-mark hold failed with
-# "Can't select installed nor candidate version". `dpkg -l | awk
-# '/^ii/'` only matches packages in the real "installed" state.
+# "Can't select installed nor candidate version". `dpkg -l`'s second
+# status-flag column ('i' = installed) is what actually matters here —
+# NOT literally matching "ii", which real evidence (a second, idempotent
+# run of this same script, packages already held from a previous run)
+# showed becomes "hi" once a package is already on hold. Match on the
+# second character being 'i' regardless of the first (hold) flag.
 HELD_PACKAGES="$(dpkg -l 'linux-image-rpi-v8' 'linux-image-rpi-2712' \
   'linux-headers-rpi-v8' 'linux-headers-rpi-2712' \
   'linux-image-6.12.*' 'linux-headers-6.12.*' 2>/dev/null \
-  | awk '/^ii/{print $2}')"
+  | awk '/^.i/{print $2}')"
 if [ -z "$HELD_PACKAGES" ]; then
   echo "FATAL: no kernel packages matched for apt-mark hold — refusing to continue with an unprotected pin." >&2
   exit 1
@@ -87,7 +91,7 @@ apt-mark showhold
 # the original cfg80211/timer API errors and fails the whole `dpkg -i`.
 # Purging the old kernel outright — not just superseding it — is what
 # "pin to 6.12.x" actually requires here.
-OLD_KERNEL_PACKAGES="$(dpkg -l 'linux-image-6.18.*' 'linux-headers-6.18.*' 'linux-kbuild-6.18.*' 2>/dev/null | awk '/^ii/{print $2}')"
+OLD_KERNEL_PACKAGES="$(dpkg -l 'linux-image-6.18.*' 'linux-headers-6.18.*' 'linux-kbuild-6.18.*' 2>/dev/null | awk '/^.i/{print $2}')"
 if [ -n "$OLD_KERNEL_PACKAGES" ]; then
   echo "=== purging superseded trixie kernel packages (evidence) ==="
   # shellcheck disable=SC2086

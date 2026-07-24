@@ -2,12 +2,12 @@ name: Build Raspberry Pi image
 
 # Builds a flashable Raspberry Pi OS Lite (64-bit/arm64) .img.xz with the
 # Go pwnagotchi daemon, bettercap, and pwngrid pre-installed and their
-# systemd services enabled — see go-port/deploy/README.md for the full
+# systemd services enabled — see deploy/README.md for the full
 # architecture, what's verified vs. unverified, and the real, disclosed
 # WiFi-monitor-mode/nexmon gap this image does NOT attempt to close.
 #
 # This has NOT been run end-to-end against real Pi Zero 2 W hardware from
-# the environment that authored it — read go-port/deploy/README.md's
+# the environment that authored it — read deploy/README.md's
 # "Status" section before trusting a build artifact from this workflow.
 on:
   workflow_dispatch:
@@ -15,7 +15,10 @@ on:
     branches:
       - go-rebuild
     paths:
-      - "go-port/**"
+      - "cmd/**"
+      - "internal/**"
+      - "go.mod"
+      - "go.sum"
       - ".github/workflows/build-pi-image.yml"
 
 jobs:
@@ -27,29 +30,21 @@ jobs:
 
       - uses: actions/setup-go@v7
         with:
-          go-version-file: go-port/go.mod
-          # setup-go's cache looks for go.sum from the repo root by
-          # default; ours is at go-port/go.sum, not the root — without
-          # this it silently fails to find a cache key (a real,
-          # confirmed warning: "Restore cache failed: Dependencies file
-          # is not found... Supported file pattern: go.sum") and
-          # re-downloads every dependency from scratch on every run.
-          cache-dependency-path: go-port/go.sum
+          go-version-file: go.mod
 
       - name: Build linux/arm64 binary
-        working-directory: go-port
         run: |
-          # go-port itself has no cgo dependencies (verified directly —
-          # see deploy/pi-gen-stage/00-install-golang's doc comment for
-          # why that's NOT also true of bettercap, which is built
-          # separately, natively, inside the pi-gen chroot).
+          # This module has no cgo dependencies (verified directly — see
+          # deploy/pi-gen-stage/00-install-golang's doc comment for why
+          # that's NOT also true of bettercap, which is built separately,
+          # natively, inside the pi-gen chroot).
           CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -o pwnagotchi-go ./cmd/pwnagotchi
           file pwnagotchi-go
 
       - uses: actions/upload-artifact@v7
         with:
           name: pwnagotchi-go-arm64
-          path: go-port/pwnagotchi-go
+          path: pwnagotchi-go
           retention-days: 14
 
   build-image:
@@ -169,7 +164,7 @@ jobs:
         # this workflow. This is the single biggest cost in the whole
         # build (~15-20 of the ~44 min stage0-2 takes is debootstrap
         # alone, plus stage1/2's own package downloads) and it is 100%
-        # independent of anything in go-port/deploy/pi-gen-stage, so
+        # independent of anything in deploy/pi-gen-stage, so
         # caching it lets iteration on OUR stage skip redoing it.
         # Keyed on the pinned pi-gen commit + RELEASE so a bump of either
         # correctly invalidates the cache instead of reusing stale state.
@@ -194,7 +189,7 @@ jobs:
           RELEASE=trixie
           DEPLOY_COMPRESSION=xz
           ENABLE_SSH=1
-          STAGE_LIST="./stage0 ./stage1 ./stage2 ${GITHUB_WORKSPACE}/repo/go-port/deploy/pi-gen-stage"
+          STAGE_LIST="./stage0 ./stage1 ./stage2 ${GITHUB_WORKSPACE}/repo/deploy/pi-gen-stage"
           export PWNAGOTCHI_REPO_DIR=${GITHUB_WORKSPACE}/repo
           export PWNAGOTCHI_GO_BINARY=${GITHUB_WORKSPACE}/artifacts/pwnagotchi-go
           EOF
@@ -216,10 +211,10 @@ jobs:
           echo "bookworm linux-image-rpi-v8 candidate: ${VER:-<not found>}"
           case "$VER" in
             1:6.12.*)
-              echo "OK: bookworm still serves a 6.12.x kernel, the pin in go-port/deploy/pi-gen-stage/05a-pin-kernel/ should still apply cleanly."
+              echo "OK: bookworm still serves a 6.12.x kernel, the pin in deploy/pi-gen-stage/05a-pin-kernel/ should still apply cleanly."
               ;;
             *)
-              echo "::error::bookworm's linux-image-rpi-v8 is '${VER:-missing}', not a 1:6.12.x version — the kernel pin this build depends on (see go-port/docs/kernel-nexmon-compatibility.md) is stale. Re-investigate before running the full build; do not just retry."
+              echo "::error::bookworm's linux-image-rpi-v8 is '${VER:-missing}', not a 1:6.12.x version — the kernel pin this build depends on (see docs/kernel-nexmon-compatibility.md) is stale. Re-investigate before running the full build; do not just retry."
               exit 1
               ;;
           esac
@@ -339,12 +334,19 @@ jobs:
 
           {
             echo
-            echo "=== real Python plugin bridge: load every bundled plugin (no hardware needed) ==="
+            echo "=== native plugin doctor: validate every bundled/installed plugin (no hardware, no Python) ==="
           } >>"$REPORT"
-          sudo cp repo/go-port/deploy/scripts/check-plugins.py "${ROOT_MNT}/tmp/check-plugins.py"
-          run_chroot "python3 /tmp/check-plugins.py" >>"$REPORT" 2>&1 || true
-          sudo rm -f "${ROOT_MNT}/tmp/check-plugins.py"
-          check "plugin bridge loaded at least one plugin in-image" bash -c "grep -q 'LOADED_COUNT=' '$REPORT' && ! grep -q 'LOADED_COUNT=0' '$REPORT'"
+          run_chroot "/usr/bin/pwnagotchi-go plugins doctor" >>"$REPORT" 2>&1
+          check "pwnagotchi-go plugins doctor reports all checks passed" bash -c "run_chroot '/usr/bin/pwnagotchi-go plugins doctor' | grep -q 'DOCTOR: all checks passed'"
+
+          {
+            echo
+            echo "=== negative check: no Python residue in the image ==="
+          } >>"$REPORT"
+          check "no .py files anywhere in the image" bash -c "! sudo find '$ROOT_MNT' -name '*.py' -print -quit | grep -q ."
+          check "no python3 interpreter installed" bash -c "! sudo test -x '$ROOT_MNT/usr/bin/python3'"
+          check "no pip installed" bash -c "! run_chroot 'command -v pip3' >/dev/null 2>&1"
+          check "no /opt/pwnagotchi-src (legacy Python source tree)" bash -c "! sudo test -d '$ROOT_MNT/opt/pwnagotchi-src'"
 
           sudo umount "$BOOT_MNT" "$ROOT_MNT"
           sudo losetup -d "$LOOPDEV"

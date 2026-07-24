@@ -4,9 +4,27 @@ config-32bit
 config-64bit
 pi-gen-64bit/
 pi-gen-32bit/
+/pi-gen/
 venv/
 __pycache__/
 *.egg-info/
 
-# Go build/test artifacts (go-port sources are tracked; scratch binaries are not)
-go-port/*.tmp
+# Go build/test artifacts (Go sources are tracked; scratch binaries are not).
+# NOTE: do not add a bare `/pwnagotchi` rule here — it would collide with
+# the tracked `pwnagotchi/` Python source directory at repo root (still
+# present; see docs/migration-ledger.md for why: display driver work is
+# out of this migration's current scope). Build local binaries as
+# `pwnagotchi-go` (matching the CI artifact name) to stay clear of it.
+*.tmp
+/pwnagotchi-go
+cmd/pwnagotchi/pwnagotchi
+*.test
+*.out
+coverage.txt
+coverage.html
+*.prof
+*.pprof
+/dist/
+/build/
+*.img
+*.img.xz

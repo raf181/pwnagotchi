@@ -219,6 +219,31 @@ jobs:
               ;;
           esac
 
+      - name: Clear stale custom-stage cache (real bug, confirmed via a failed CI run)
+        # REAL BUG FOUND HERE: the actions/cache step above keys
+        # pi-gen/work SOLELY on the pinned pi-gen commit + RELEASE —
+        # never on anything in this repo's own deploy/pi-gen-stage. A
+        # cache hit therefore restores whatever pi-gen-stage/export-image
+        # rootfs a PAST run last wrote there, even across completely
+        # unrelated commits of our own code, and our own stage's
+        # prerun.sh (`if [ ! -d "${ROOTFS_DIR}" ]; then copy_previous;
+        # fi`) skips copying a fresh rootfs forward from stage2 when one
+        # already "exists" from that stale cache restore — real evidence:
+        # a CI run on this exact codebase (post-migration, zero Python
+        # left in the actual source) failed image validation's Python-
+        # residue checks with /opt/pwnagotchi-src and pip3 BOTH present,
+        # neither of which anything in this repo's own pi-gen-stage
+        # installs or creates — the only explanation consistent with a
+        # from-scratch build is a leftover rootfs from a much older,
+        # pre-migration (Python-era) cache entry the key never
+        # invalidated. This exact class of bug was already found and
+        # worked around locally earlier (manually clearing this same
+        # directory before every local rebuild) — this applies the same
+        # fix to CI. stage0/1/2 stay cached (debootstrap + base packages
+        # are genuinely independent of our own code and safe to reuse).
+        run: |
+          sudo rm -rf pi-gen/work/pwnagotchi/pi-gen-stage pi-gen/work/pwnagotchi/export-image
+
       - name: Build image (pi-gen / build.sh)
         working-directory: pi-gen
         run: |

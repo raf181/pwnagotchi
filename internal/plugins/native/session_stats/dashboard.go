@@ -27,6 +27,13 @@ const dashboardHTML = `<!doctype html>
   --font-main: sans-serif;
   --shadow-md: 0 2px 8px rgba(0,0,0,0.4);
 }
+/* This page renders standalone rather than through base.html (see
+   OnWebhook's doc comment), so it never inherits base.html's box-sizing
+   reset. Without it, .chart's width:100% plus its padding+border are
+   added on top of the grid column's share instead of inside it, making
+   each chart ~34px wider than its column and overlapping its neighbor
+   whenever the grid lays out 2+ columns side by side. */
+*, *::before, *::after { box-sizing: border-box; }
 body { background: #111; color: #eee; font-family: var(--font-main); margin: 0; padding: 1.5rem; }
 .stats-header {
     margin-bottom: 2rem;
@@ -116,19 +123,57 @@ div.chart {
     padding: 1rem;
     box-shadow: var(--shadow-md);
     transition: all 0.3s ease;
-    overflow-x: auto;
-    overflow-y: hidden;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
 }
 div.chart:hover {
     border-color: var(--accent);
     box-shadow: 0 8px 25px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.1);
 }
-div.chart canvas { max-height: 250px; display: block; min-width: 100%; }
+/* Title and legend are kept OUTSIDE the horizontally-scrollable canvas
+   wrapper on purpose: Chart.js centers its own title/legend plugins
+   relative to the full canvas width, and that canvas is deliberately made
+   wider than the visible box so long sessions can be scrolled through. If
+   title/legend rendered inside the canvas, they'd land off-screen at
+   scrollLeft=0 for any chart with more than a screenful of points. */
+.chart-title {
+    font-family: var(--font-pixel);
+    font-weight: 600;
+    font-size: 1rem;
+    color: #fff;
+    text-align: center;
+    margin-bottom: 0.5rem;
+    flex: none;
+}
+.chart-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+.chart-scroll canvas { display: block; height: 100%; min-width: 100%; }
+.chart-legend {
+    flex: none;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.25rem 1rem;
+    margin-top: 0.5rem;
+    font-family: var(--font-main);
+    font-size: 0.75rem;
+    color: #fff;
+}
+.chart-legend .legend-item { display: flex; align-items: center; gap: 0.35rem; }
+.chart-legend .legend-swatch { width: 12px; height: 4px; border-radius: 2px; display: inline-block; }
 .chart-hint {
     font-size: 0.75rem;
     color: var(--text-muted);
     text-align: center;
     margin-top: 0.5rem;
+    flex: none;
     font-family: var(--font-main);
 }
 @media (max-width: 768px) {
@@ -199,12 +244,12 @@ div.chart canvas { max-height: 250px; display: block; min-width: 100%; }
 <div class="charts-section">
     <h3>Trend Charts</h3>
     <div class="charts-grid">
-        <div id="chart_networks" class="chart"><canvas></canvas></div>
-        <div id="chart_handshakes" class="chart"><canvas></canvas></div>
-        <div id="chart_deauths" class="chart"><canvas></canvas></div>
-        <div id="chart_temp" class="chart"><canvas></canvas></div>
-        <div id="chart_mem" class="chart"><canvas></canvas></div>
-        <div id="chart_cpu" class="chart"><canvas></canvas></div>
+        <div id="chart_networks" class="chart"></div>
+        <div id="chart_handshakes" class="chart"></div>
+        <div id="chart_deauths" class="chart"></div>
+        <div id="chart_temp" class="chart"></div>
+        <div id="chart_mem" class="chart"></div>
+        <div id="chart_cpu" class="chart"></div>
     </div>
 </div>
 
@@ -260,18 +305,58 @@ div.chart canvas { max-height: 250px; display: block; min-width: 100%; }
             };
         });
 
-        let canvas = container.querySelector('canvas');
+        // Title and legend are plain, non-scrolling DOM elements (see the
+        // .chart-title/.chart-scroll/.chart-legend doc comment in <style>):
+        // Chart.js's own title/legend plugins center on the full canvas,
+        // which is wider than the visible box, so they'd render off-screen.
+        let titleEl = container.querySelector('.chart-title');
+        if (!titleEl) {
+            titleEl = document.createElement('div');
+            titleEl.className = 'chart-title';
+            container.appendChild(titleEl);
+        }
+        titleEl.textContent = title;
+
+        let scrollEl = container.querySelector('.chart-scroll');
+        if (!scrollEl) {
+            scrollEl = document.createElement('div');
+            scrollEl.className = 'chart-scroll';
+            container.appendChild(scrollEl);
+        }
+
+        let canvas = scrollEl.querySelector('canvas');
         if (!canvas) {
             canvas = document.createElement('canvas');
-            container.appendChild(canvas);
+            scrollEl.appendChild(canvas);
         }
+
+        let legendEl = container.querySelector('.chart-legend');
+        if (!legendEl) {
+            legendEl = document.createElement('div');
+            legendEl.className = 'chart-legend';
+            container.appendChild(legendEl);
+        }
+        legendEl.innerHTML = '';
+        datasets.forEach(ds => {
+            const item = document.createElement('span');
+            item.className = 'legend-item';
+            const swatch = document.createElement('span');
+            swatch.className = 'legend-swatch';
+            swatch.style.backgroundColor = ds.borderColor;
+            const label = document.createElement('span');
+            label.textContent = ds.label;
+            item.appendChild(swatch);
+            item.appendChild(label);
+            legendEl.appendChild(item);
+        });
 
         const dataPointCount = labels.length;
         const minPixelsPerPoint = 50;
-        const calculatedWidth = Math.max(container.clientWidth, dataPointCount * minPixelsPerPoint);
+        const calculatedWidth = Math.max(scrollEl.clientWidth, dataPointCount * minPixelsPerPoint);
+        const calculatedHeight = scrollEl.clientHeight || 250;
 
         canvas.width = calculatedWidth;
-        canvas.height = 250;
+        canvas.height = calculatedHeight;
 
         charts[elementId] = new Chart(canvas, {
             type: 'line',
@@ -280,39 +365,24 @@ div.chart canvas { max-height: 250px; display: block; min-width: 100%; }
                 responsive: false,
                 maintainAspectRatio: false,
                 plugins: {
-                    title: {
-                        display: true,
-                        text: title,
-                        font: { size: 16, family: 'var(--font-pixel)', weight: 'bold' },
-                        color: '#fff',
-                        padding: 20
-                    },
-                    legend: {
-                        display: true,
-                        position: 'bottom',
-                        labels: {
-                            color: '#fff',
-                            font: { family: 'var(--font-main)', size: 12, weight: 'bold' },
-                            padding: 15,
-                            boxHeight: 4
-                        }
-                    },
+                    title: { display: false },
+                    legend: { display: false },
                     tooltip: {
                         backgroundColor: '#000',
                         titleColor: '#fff',
                         bodyColor: '#fff',
-                        borderColor: 'var(--accent)',
+                        borderColor: getChartColor(0),
                         borderWidth: 1
                     }
                 },
                 scales: {
                     x: {
                         grid: { color: '#333', display: true },
-                        ticks: { color: '#fff', font: { family: 'var(--font-main)', size: 11, weight: 'bold' }, maxTicksLimit: 8 }
+                        ticks: { color: '#fff', font: { family: 'sans-serif', size: 11, weight: 'bold' }, maxTicksLimit: 8 }
                     },
                     y: {
                         grid: { color: '#333', display: true },
-                        ticks: { color: '#fff', font: { family: 'var(--font-main)', size: 11, weight: 'bold' } }
+                        ticks: { color: '#fff', font: { family: 'sans-serif', size: 11, weight: 'bold' } }
                     }
                 }
             }

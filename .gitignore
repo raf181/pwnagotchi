@@ -1,6 +1,5 @@
 *.pyc
 .vscode
-.claude/
 config-32bit
 config-64bit
 pi-gen-64bit/
@@ -29,3 +28,5 @@ coverage.html
 /build/
 *.img
 *.img.xz
+.claude/settings.local.json
+.claude/

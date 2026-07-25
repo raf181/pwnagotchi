@@ -257,7 +257,18 @@ jobs:
           ROOT_MNT=/tmp/validate-root
           sudo mkdir -p "$BOOT_MNT" "$ROOT_MNT"
           sudo mount -o ro "${LOOPDEV}p1" "$BOOT_MNT"
-          sudo mount -o ro "${LOOPDEV}p2" "$ROOT_MNT"
+          # REAL BUG FIXED HERE: mounting rootfs read-only broke `dkms
+          # status` (needs to write temp files under /tmp) and gave a
+          # false "read-only file system" failure for pwnagotchi-go
+          # plugins doctor (writes /etc/pwnagotchi/default.toml on first
+          # run). This is a disposable loop-mounted copy for validation
+          # only — mounting it read-write never touches the real image
+          # artifact on disk, and everything is discarded after umount
+          # below. Confirmed via a real local run: this exact mount mode
+          # was the actual cause, not a real image defect.
+          sudo mount "${LOOPDEV}p2" "$ROOT_MNT"
+          sudo mount -t proc proc "$ROOT_MNT/proc"
+          sudo mount -t sysfs sysfs "$ROOT_MNT/sys"
 
           REPORT=/tmp/image-validation-report.txt
           FAIL=0
@@ -273,6 +284,15 @@ jobs:
           run_chroot() {
             sudo chroot "$ROOT_MNT" /bin/bash -c "$1"
           }
+          # REAL BUG FIXED HERE: every `check "..." bash -c "run_chroot
+          # ..."` call below runs run_chroot in a NEW subshell, which
+          # can't see a function defined in the parent shell unless it's
+          # exported — every one of those checks was failing with
+          # "run_chroot: command not found" regardless of the image's
+          # actual state, confirmed via a real local run showing this
+          # exact error for every affected check.
+          export -f run_chroot
+          export ROOT_MNT
 
           {
             echo "=== image validation report ==="
@@ -348,6 +368,7 @@ jobs:
           check "no pip installed" bash -c "! run_chroot 'command -v pip3' >/dev/null 2>&1"
           check "no /opt/pwnagotchi-src (legacy Python source tree)" bash -c "! sudo test -d '$ROOT_MNT/opt/pwnagotchi-src'"
 
+          sudo umount "$ROOT_MNT/proc" "$ROOT_MNT/sys"
           sudo umount "$BOOT_MNT" "$ROOT_MNT"
           sudo losetup -d "$LOOPDEV"
 

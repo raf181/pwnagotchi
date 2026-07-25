@@ -1,23 +1,8 @@
 # Pwnagotchi (Go)
 
-The primary implementation of this project is now the Go port in
-[`go-port/`](go-port/). Start there for building, running, and
-architecture docs — see `go-port/README.md` and `go-port/docs/` (feature
-matrix, known differences, final port report).
-
-The original Python daemon (`pwnagotchi/`) is kept only as:
-- the bundled/custom **plugin runtime** — `go-port/internal/pyplugin` runs
-  the real, unmodified plugin files under `pwnagotchi/plugins/default/`
-  in a real Python subprocess, since bundled plugins depend on real
-  Python-only libraries (RPi.GPIO, dbus, Flask, requests, ...) that can't
-  be reimplemented in Go without losing compatibility;
-- the **behavioral oracle** the Go port's differential tests
-  (`go-port/tests/compat_*_test.go`, `make -C go-port compatibility-test`)
-  diff against, and the reference venv (`venv/`) those tests and the
-  plugin bridge run against.
-
-It is not run directly as the daemon anymore and is not the place to add
-new features — changes belong in `go-port/`.
+This is a Go implementation of [Pwnagotchi](https://pwnagotchi.org/) — the
+daemon, web UI, plugin system, and all 23 bundled plugins are native Go,
+built as a single static binary with no Python runtime dependency.
 
 [Pwnagotchi](https://pwnagotchi.org/) is a Raspberry Pi leveraging
 [bettercap](https://www.bettercap.org/) that survives from its
@@ -33,6 +18,76 @@ advertising their presence to each other by broadcasting custom
 information elements using a parasite protocol
 [@evilsocket](https://x.com/evilsocket) built on top of the existing
 dot11 standard.
+
+## Layout
+
+- `cmd/pwnagotchi` — CLI entry point.
+- `internal/config` — TOML/YAML config loading, merging, defaults.
+- `internal/cli` — argument parsing.
+- `internal/identity` — RSA identity keypair management.
+- `internal/automata` — state machine.
+- `internal/epoch` — epoch/session bookkeeping.
+- `internal/logging` — logging setup.
+- `internal/voice` — personality voice lines (translated via embedded
+  gettext `.mo` catalogs; editable `.po` sources live in `locale-src/`).
+- `internal/bettercap` — bettercap REST API client.
+- `internal/grid` — pwngrid API client.
+- `internal/mesh` — peer discovery.
+- `internal/agent` — main orchestration loop.
+- `internal/ui` — display state/rendering; `internal/ui/hw` — display
+  drivers; `internal/web` — web UI.
+- `internal/pluginmanager` — the native plugin manager every bundled
+  plugin registers with: lifecycle, event dispatch, typed capabilities,
+  panic isolation.
+- `internal/plugins/native/` — all 23 bundled plugins, each its own
+  package (memtemp, cache, switcher, wpa-sec, grid, wigle, bt-tether,
+  session-stats, auto-tune, and the rest).
+- `internal/pluginrpc` — the Go-only third-party plugin distribution
+  system: versioned manifests, checksum-verified separately-compiled Go
+  executables, and a bounded RPC protocol — see `docs/plugin-development.md`.
+- `internal/wifiparse` — pure-Go PCAP/802.11 field extraction (BSSID,
+  ESSID, encryption, channel, RSSI) for the `grid`/`wigle` plugins.
+- `docs/` — `architecture.md` (how the pieces fit together),
+  `migration-ledger.md` (evidence-based porting log), `plugin-development.md`
+  (native plugin API), `feature-matrix.md`/`plugin-compatibility-matrix.md`/
+  `known-differences.md` (per-subsystem status and Python↔Go divergences).
+- `deploy/` — Raspberry Pi image build pipeline (pi-gen stages, systemd
+  units, kernel/Nexmon pinning).
+- `tests/`, `testdata/` — Go tests and fixtures.
+
+## Building
+
+```sh
+go build ./...
+go vet ./...
+go test ./...
+go test -race ./...
+
+# Cross-compile for the Raspberry Pi target:
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -o pwnagotchi-go ./cmd/pwnagotchi
+```
+
+Or via the Makefile: `make build`, `make fmt`, `make vet`, `make test`, `make race`.
+
+## Writing a plugin
+
+See [`docs/plugin-development.md`](docs/plugin-development.md) for the
+native Go plugin API (bundled/compiled-in) and
+[`internal/pluginrpc`](internal/pluginrpc) for the third-party
+distribution system (versioned manifests + checksum-verified executables).
+Existing Python plugins are not compatible with this daemon — the Python
+plugin bridge has been fully removed.
+
+## Status and known gaps
+
+See [`docs/migration-ledger.md`](docs/migration-ledger.md) for the
+authoritative, evidence-based record of what's ported, what's
+intentionally deferred, and why. Two items are deliberately out of scope
+as of this writing (by explicit request, not oversight): the ~94 physical
+display driver ports and the SPI/I2C/GPIO/PWM hardware bus abstraction
+work. The `pwnagotchi/` Python source tree at the repository root is kept
+only for that reason — it is not run, imported, or required by this Go
+daemon in any way.
 
 ## Links
 

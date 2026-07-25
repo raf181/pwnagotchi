@@ -2,12 +2,12 @@ name: Build Raspberry Pi image
 
 # Builds a flashable Raspberry Pi OS Lite (64-bit/arm64) .img.xz with the
 # Go pwnagotchi daemon, bettercap, and pwngrid pre-installed and their
-# systemd services enabled — see go-port/deploy/README.md for the full
+# systemd services enabled — see deploy/README.md for the full
 # architecture, what's verified vs. unverified, and the real, disclosed
 # WiFi-monitor-mode/nexmon gap this image does NOT attempt to close.
 #
 # This has NOT been run end-to-end against real Pi Zero 2 W hardware from
-# the environment that authored it — read go-port/deploy/README.md's
+# the environment that authored it — read deploy/README.md's
 # "Status" section before trusting a build artifact from this workflow.
 on:
   workflow_dispatch:
@@ -15,7 +15,10 @@ on:
     branches:
       - go-rebuild
     paths:
-      - "go-port/**"
+      - "cmd/**"
+      - "internal/**"
+      - "go.mod"
+      - "go.sum"
       - ".github/workflows/build-pi-image.yml"
 
 jobs:
@@ -27,29 +30,21 @@ jobs:
 
       - uses: actions/setup-go@v7
         with:
-          go-version-file: go-port/go.mod
-          # setup-go's cache looks for go.sum from the repo root by
-          # default; ours is at go-port/go.sum, not the root — without
-          # this it silently fails to find a cache key (a real,
-          # confirmed warning: "Restore cache failed: Dependencies file
-          # is not found... Supported file pattern: go.sum") and
-          # re-downloads every dependency from scratch on every run.
-          cache-dependency-path: go-port/go.sum
+          go-version-file: go.mod
 
       - name: Build linux/arm64 binary
-        working-directory: go-port
         run: |
-          # go-port itself has no cgo dependencies (verified directly —
-          # see deploy/pi-gen-stage/00-install-golang's doc comment for
-          # why that's NOT also true of bettercap, which is built
-          # separately, natively, inside the pi-gen chroot).
+          # This module has no cgo dependencies (verified directly — see
+          # deploy/pi-gen-stage/00-install-golang's doc comment for why
+          # that's NOT also true of bettercap, which is built separately,
+          # natively, inside the pi-gen chroot).
           CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -o pwnagotchi-go ./cmd/pwnagotchi
           file pwnagotchi-go
 
       - uses: actions/upload-artifact@v7
         with:
           name: pwnagotchi-go-arm64
-          path: go-port/pwnagotchi-go
+          path: pwnagotchi-go
           retention-days: 14
 
   build-image:
@@ -169,7 +164,7 @@ jobs:
         # this workflow. This is the single biggest cost in the whole
         # build (~15-20 of the ~44 min stage0-2 takes is debootstrap
         # alone, plus stage1/2's own package downloads) and it is 100%
-        # independent of anything in go-port/deploy/pi-gen-stage, so
+        # independent of anything in deploy/pi-gen-stage, so
         # caching it lets iteration on OUR stage skip redoing it.
         # Keyed on the pinned pi-gen commit + RELEASE so a bump of either
         # correctly invalidates the cache instead of reusing stale state.
@@ -194,11 +189,35 @@ jobs:
           RELEASE=trixie
           DEPLOY_COMPRESSION=xz
           ENABLE_SSH=1
-          STAGE_LIST="./stage0 ./stage1 ./stage2 ${GITHUB_WORKSPACE}/repo/go-port/deploy/pi-gen-stage"
+          STAGE_LIST="./stage0 ./stage1 ./stage2 ${GITHUB_WORKSPACE}/repo/deploy/pi-gen-stage"
           export PWNAGOTCHI_REPO_DIR=${GITHUB_WORKSPACE}/repo
           export PWNAGOTCHI_GO_BINARY=${GITHUB_WORKSPACE}/artifacts/pwnagotchi-go
           EOF
           chmod +x artifacts/pwnagotchi-go
+
+      - name: Verify pinned kernel package availability before spending 45+ min on a build
+        # Real, fast (seconds) fail-fast check against archive.raspberrypi.com's
+        # actual live Packages indices — the same evidence-gathering approach
+        # docs/kernel-nexmon-compatibility.md's research used manually,
+        # automated here so a future drift (Raspberry Pi Foundation moving
+        # bookworm's own kernel past the nexmon-compatible line, or trixie's
+        # default catching up to make this pin unnecessary) is caught in
+        # seconds, not after a near-hour build fails deep in 06-nexmon.
+        run: |
+          set -e
+          curl -sf https://archive.raspberrypi.com/debian/dists/bookworm/main/binary-arm64/Packages.gz -o /tmp/bookworm-Packages.gz
+          gunzip -f /tmp/bookworm-Packages.gz
+          VER="$(grep -A2 '^Package: linux-image-rpi-v8$' /tmp/bookworm-Packages | awk '/^Version:/{print $2; exit}')"
+          echo "bookworm linux-image-rpi-v8 candidate: ${VER:-<not found>}"
+          case "$VER" in
+            1:6.12.*)
+              echo "OK: bookworm still serves a 6.12.x kernel, the pin in deploy/pi-gen-stage/05a-pin-kernel/ should still apply cleanly."
+              ;;
+            *)
+              echo "::error::bookworm's linux-image-rpi-v8 is '${VER:-missing}', not a 1:6.12.x version — the kernel pin this build depends on (see docs/kernel-nexmon-compatibility.md) is stale. Re-investigate before running the full build; do not just retry."
+              exit 1
+              ;;
+          esac
 
       - name: Build image (pi-gen / build.sh)
         working-directory: pi-gen
@@ -215,6 +234,140 @@ jobs:
         # -completed rootfs still gets cached for the next iteration.
         if: always()
         run: sudo chown -R "$(id -u):$(id -g)" pi-gen/work
+
+      - name: Validate image contents (kernel pin, nexmon, services, plugins)
+        # Real, no-Pi-hardware-needed verification that build.sh's
+        # success actually produced what deploy/docs/kernel-nexmon-
+        # -compatibility.md claims — a successful image build alone is
+        # not proof of anything about its contents. This runner is a
+        # real VM (unlike the sandbox that designed this pipeline, which
+        # has no working loop devices at all — see deploy/README.md's
+        # own notes on that), so real losetup + chroot works here.
+        # Fails the job if anything checked comes back wrong; results
+        # are also uploaded as an artifact below regardless.
+        run: |
+          set -x
+          IMG_XZ="$(ls pi-gen/deploy/*.img.xz | head -1)"
+          xzcat "$IMG_XZ" > /tmp/validate.img
+          sudo losetup -fP /tmp/validate.img
+          LOOPDEV="$(losetup -j /tmp/validate.img | cut -d: -f1)"
+          sudo partprobe "$LOOPDEV" || true
+          sleep 1
+          BOOT_MNT=/tmp/validate-boot
+          ROOT_MNT=/tmp/validate-root
+          sudo mkdir -p "$BOOT_MNT" "$ROOT_MNT"
+          sudo mount -o ro "${LOOPDEV}p1" "$BOOT_MNT"
+          sudo mount -o ro "${LOOPDEV}p2" "$ROOT_MNT"
+
+          REPORT=/tmp/image-validation-report.txt
+          FAIL=0
+          check() {
+            local desc="$1"; shift
+            if "$@" >>"$REPORT" 2>&1; then
+              echo "PASS: ${desc}" | tee -a "$REPORT"
+            else
+              echo "FAIL: ${desc}" | tee -a "$REPORT"
+              FAIL=1
+            fi
+          }
+          run_chroot() {
+            sudo chroot "$ROOT_MNT" /bin/bash -c "$1"
+          }
+
+          {
+            echo "=== image validation report ==="
+            date -u
+            echo
+            echo "=== dpkg-query: kernel/header package versions ==="
+          } >>"$REPORT"
+          run_chroot "dpkg-query -W -f='\${Package} \${Version}\n' linux-image-rpi-v8 linux-image-rpi-2712 linux-headers-rpi-v8 linux-headers-rpi-2712" >>"$REPORT" 2>&1 || true
+
+          KVER_OK=1
+          run_chroot "dpkg-query -W -f='\${Version}' linux-image-rpi-v8" | grep -q '^1:6\.12\.' || KVER_OK=0
+          if [ "$KVER_OK" = 1 ]; then
+            echo "PASS: linux-image-rpi-v8 installed version is in the pinned 6.12.x line" | tee -a "$REPORT"
+          else
+            echo "FAIL: linux-image-rpi-v8 installed version is NOT in the pinned 6.12.x line" | tee -a "$REPORT"
+            FAIL=1
+          fi
+
+          {
+            echo
+            echo "=== apt-mark showhold ==="
+          } >>"$REPORT"
+          run_chroot "apt-mark showhold" >>"$REPORT" 2>&1
+          check "at least one linux-image-* package is held" bash -c "run_chroot 'apt-mark showhold' | grep -q linux-image"
+
+          {
+            echo
+            echo "=== dkms status ==="
+          } >>"$REPORT"
+          run_chroot "dkms status" >>"$REPORT" 2>&1
+          check "brcmfmac-nexmon shows installed in dkms status" bash -c "run_chroot 'dkms status' | grep -qi brcmfmac-nexmon"
+
+          {
+            echo
+            echo "=== brcmfmac.ko module search + modinfo ==="
+          } >>"$REPORT"
+          MODPATH="$(run_chroot "find /lib/modules -name 'brcmfmac.ko*' 2>/dev/null | head -1")"
+          echo "module path: ${MODPATH:-<none>}" >>"$REPORT"
+          if [ -n "$MODPATH" ]; then
+            run_chroot "modinfo '$MODPATH'" >>"$REPORT" 2>&1
+          fi
+          check "brcmfmac.ko exists in the image" bash -c "[ -n '$MODPATH' ]"
+          check "brcmfmac.ko self-identifies as nexmon-patched" bash -c "[ -n '$MODPATH' ] && run_chroot \"modinfo '$MODPATH'\" | grep -qi nexmon"
+
+          {
+            echo
+            echo "=== systemd service enablement ==="
+          } >>"$REPORT"
+          for svc in bettercap.service pwngrid-peer.service pwnagotchi.service; do
+            run_chroot "systemctl is-enabled $svc" >>"$REPORT" 2>&1
+            check "${svc} is enabled" bash -c "run_chroot 'systemctl is-enabled $svc' | grep -q enabled"
+          done
+
+          {
+            echo
+            echo "=== validate-nexmon-runtime script present ==="
+          } >>"$REPORT"
+          check "validate-nexmon-runtime is installed" sudo test -x "${ROOT_MNT}/usr/local/bin/validate-nexmon-runtime"
+
+          {
+            echo
+            echo "=== native plugin doctor: validate every bundled/installed plugin (no hardware, no Python) ==="
+          } >>"$REPORT"
+          run_chroot "/usr/bin/pwnagotchi-go plugins doctor" >>"$REPORT" 2>&1
+          check "pwnagotchi-go plugins doctor reports all checks passed" bash -c "run_chroot '/usr/bin/pwnagotchi-go plugins doctor' | grep -q 'DOCTOR: all checks passed'"
+
+          {
+            echo
+            echo "=== negative check: no Python residue in the image ==="
+          } >>"$REPORT"
+          check "no .py files anywhere in the image" bash -c "! sudo find '$ROOT_MNT' -name '*.py' -print -quit | grep -q ."
+          check "no python3 interpreter installed" bash -c "! sudo test -x '$ROOT_MNT/usr/bin/python3'"
+          check "no pip installed" bash -c "! run_chroot 'command -v pip3' >/dev/null 2>&1"
+          check "no /opt/pwnagotchi-src (legacy Python source tree)" bash -c "! sudo test -d '$ROOT_MNT/opt/pwnagotchi-src'"
+
+          sudo umount "$BOOT_MNT" "$ROOT_MNT"
+          sudo losetup -d "$LOOPDEV"
+
+          echo "=========================================="  | tee -a "$REPORT"
+          if [ "$FAIL" -eq 0 ]; then
+            echo "ALL IMAGE VALIDATION CHECKS PASSED" | tee -a "$REPORT"
+          else
+            echo "ONE OR MORE IMAGE VALIDATION CHECKS FAILED" | tee -a "$REPORT"
+          fi
+          cp "$REPORT" image-validation-report.txt
+          exit "$FAIL"
+
+      - name: Upload image validation report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: image-validation-report
+          path: image-validation-report.txt
+          if-no-files-found: ignore
+          retention-days: 14
 
       - uses: actions/upload-artifact@v7
         with:

@@ -386,10 +386,29 @@ jobs:
 
           {
             echo
-            echo "=== negative check: no Python residue in the image ==="
+            echo "=== negative check: no pwnagotchi Python residue in the image ==="
           } >>"$REPORT"
-          check "no .py files anywhere in the image" bash -c "! sudo find '$ROOT_MNT' -name '*.py' -print -quit | grep -q ."
-          check "no python3 interpreter installed" bash -c "! sudo test -x '$ROOT_MNT/usr/bin/python3'"
+          # REAL BUG FIXED HERE: the previous two checks
+          # ("no .py files anywhere", "no python3 interpreter installed")
+          # tested the wrong thing and always failed on a genuinely clean
+          # image — confirmed via a real CI run (30173218381) where every
+          # OTHER check here passed, including the two below, after a
+          # real stale-cache bug (fixed separately) was ruled out as the
+          # cause. python3-minimal is an automatic Debian trixie base
+          # dependency this pipeline never installs directly (confirmed:
+          # `dpkg -S /usr/bin/python3` -> python3-minimal, `apt list
+          # --installed` shows it `[installed,automatic]`), and the .py
+          # files present all belong to unrelated vendored packages (the
+          # Go toolchain's runtime-gdb.py, bettercap's own caplets, gcc's
+          # pretty-printers, netplan) — none of it pwnagotchi's own code.
+          # What actually matters for "did the Python migration leave
+          # residue behind" is covered by the two checks below plus this
+          # one: no installed `pwnagotchi` Python package (the actual
+          # name in this repo's own pyproject.toml — would land under
+          # site-packages/dist-packages/pwnagotchi/ if anything ever
+          # pip-installed it, which this pipeline never does).
+          check "no installed pwnagotchi Python package" bash -c "! sudo find '$ROOT_MNT/usr/lib/python3' '$ROOT_MNT/usr/local/lib' -maxdepth 4 -type d -name pwnagotchi -print -quit 2>/dev/null | grep -q ."
+          check "no legacy Python pwnagotchi entrypoint (/usr/local/bin/pwnagotchi)" bash -c "! sudo test -e '$ROOT_MNT/usr/local/bin/pwnagotchi'"
           check "no pip installed" bash -c "! run_chroot 'command -v pip3' >/dev/null 2>&1"
           check "no /opt/pwnagotchi-src (legacy Python source tree)" bash -c "! sudo test -d '$ROOT_MNT/opt/pwnagotchi-src'"
 

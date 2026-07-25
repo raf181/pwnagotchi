@@ -26,17 +26,39 @@ install -d "${ROOTFS_DIR}/etc/NetworkManager/conf.d"
 install -m 644 "${DEPLOY_DIR}/network-manager/99-unmanaged-wlan0.conf" \
   "${ROOTFS_DIR}/etc/NetworkManager/conf.d/99-unmanaged-wlan0.conf"
 
-# USB gadget networking (usb0, static 10.0.0.2) — the real, original
-# pwnagotchi project's own standard "plug into a computer via USB, ssh
-# pi@10.0.0.2" connectivity path, ported from the deleted original
-# builder's config (git show c340de23:builder/data/etc/network/
-# interfaces.d/usb0-cfg for the address scheme this matches) — as a
-# NetworkManager keyfile connection instead of the original's ifupdown
-# config, consistent with how this pipeline already manages wlan0.
-# NetworkManager requires keyfile connections to be exactly 0600.
+# USB gadget networking — matches the actual upstream jayofelony/
+# pwnagotchi release image's own config exactly (confirmed by SSHing
+# into a real official 2.9.5.4 release image and inspecting its live
+# NetworkManager profiles/modules-load.d, after this pipeline's own
+# earlier single-static-IP profile consistently failed to ever bring
+# up carrier on real Pi Zero 2 W hardware across many real-hardware
+# boot attempts, while the official image worked immediately with this
+# exact setup on the same hardware/cable/host).
+#
+# Two profiles, not one: "client" (ipv4 method=auto, DHCP client,
+# autoconnect=false) for when something else offers DHCP (e.g. a Pi4/5
+# plugged into a router via its USB-C/Ethernet port), and "shared"
+# (ipv4 method=shared, static 10.12.194.1/28, higher autoconnect
+# priority so it's preferred) for the normal direct-USB-cable-to-a-PC
+# case — NetworkManager's own "shared" method runs its own dnsmasq
+# automatically to hand the connecting host a real DHCP lease, instead
+# of requiring the host to already know to configure a specific
+# hardcoded static IP/subnet to match. NetworkManager requires keyfile
+# connections to be exactly 0600.
 install -d "${ROOTFS_DIR}/etc/NetworkManager/system-connections"
-install -m 600 "${DEPLOY_DIR}/network-manager/usb0.nmconnection" \
-  "${ROOTFS_DIR}/etc/NetworkManager/system-connections/usb0.nmconnection"
+install -m 600 "${DEPLOY_DIR}/network-manager/usb0-client.nmconnection" \
+  "${ROOTFS_DIR}/etc/NetworkManager/system-connections/usb0-client.nmconnection"
+install -m 600 "${DEPLOY_DIR}/network-manager/usb0-shared.nmconnection" \
+  "${ROOTFS_DIR}/etc/NetworkManager/system-connections/usb0-shared.nmconnection"
+
+# g_ether loaded via the modern modules-load.d mechanism, matching the
+# official image exactly — NOT via a `modules-load=dwc2,g_ether` kernel
+# cmdline.txt parameter (this pipeline's own earlier approach, which
+# also force-added `dwc2.lpm_enable=0`; neither appears anywhere in the
+# official image's cmdline.txt at all, confirmed by direct inspection).
+install -d "${ROOTFS_DIR}/etc/modules-load.d"
+install -m 644 "${DEPLOY_DIR}/modules-load.d/usb-gadget.conf" \
+  "${ROOTFS_DIR}/etc/modules-load.d/usb-gadget.conf"
 
 # Real, confirmed-on-hardware gap: this image shipped with swap
 # effectively disabled (rpi-swap's own config commented out,
@@ -48,6 +70,31 @@ install -m 600 "${DEPLOY_DIR}/network-manager/usb0.nmconnection" \
 install -d "${ROOTFS_DIR}/etc/rpi/swap.conf.d"
 install -m 644 "${DEPLOY_DIR}/rpi-swap/10-enable-zram.conf" \
   "${ROOTFS_DIR}/etc/rpi/swap.conf.d/10-enable-zram.conf"
+
+# REAL GAP FOUND: this pipeline's cloud.cfg (shipped by the
+# cloud-init package itself, unmodified) is configured with
+# `datasource_list: [ NoCloud, None ]` and
+# `datasource: NoCloud: seedfrom: file:///boot/firmware` — but nothing
+# in this pipeline ever wrote a NoCloud seed (user-data/meta-data/
+# network-config) to /boot/firmware, leaving that configured seed
+# location empty. Confirmed via a real, working official
+# jayofelony/pwnagotchi 2.9.5.4 release image (extracted directly from
+# its own boot partition, not a live-booted copy) that it ships these
+# exact three files at /boot/firmware — their presence is very likely
+# why cloud-init completes cleanly on the official image but
+# cloud-init.target stalled indefinitely on every real-hardware boot
+# attempt of this pipeline's own images before this fix (same
+# nexmon/kernel-pin/services otherwise, same cable/host/hardware,
+# only this was missing). Content matches the official image
+# byte-for-byte (mostly commented-out boilerplate/examples — the only
+# live directive is user-data's `rpi: enable_usb_gadget: true`, a
+# Raspberry-Pi-specific cloud-init module).
+install -m 644 "${DEPLOY_DIR}/cloud-init/user-data" \
+  "${ROOTFS_DIR}/boot/firmware/user-data"
+install -m 644 "${DEPLOY_DIR}/cloud-init/meta-data" \
+  "${ROOTFS_DIR}/boot/firmware/meta-data"
+install -m 644 "${DEPLOY_DIR}/cloud-init/network-config" \
+  "${ROOTFS_DIR}/boot/firmware/network-config"
 
 install -d "${ROOTFS_DIR}/etc/pwnagotchi/log"
 install -d "${ROOTFS_DIR}/etc/pwnagotchi/handshakes"

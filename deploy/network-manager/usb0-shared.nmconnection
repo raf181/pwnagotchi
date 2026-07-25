@@ -1,0 +1,18 @@
+[connection]
+id=USB Gadget (shared)
+uuid=749f5a27-ff89-40da-9234-09b4c29c6e1a
+type=ethernet
+autoconnect-priority=10
+interface-name=usb0
+
+[ethernet]
+
+[ipv4]
+address1=10.12.194.1/28
+method=shared
+
+[ipv6]
+addr-gen-mode=default
+method=disabled
+
+[proxy]

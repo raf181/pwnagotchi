@@ -1,0 +1,20 @@
+[connection]
+id=USB Gadget (client)
+uuid=40530570-bb59-4a10-b38d-9938aa0f9eb7
+type=ethernet
+autoconnect=false
+autoconnect-priority=100
+interface-name=usb0
+
+[ethernet]
+
+[ipv4]
+dhcp-timeout=6
+method=auto
+route-metric=100
+
+[ipv6]
+addr-gen-mode=default
+method=disabled
+
+[proxy]

@@ -9,6 +9,43 @@
 # radio directly once masked out of the way.
 systemctl mask wpa_supplicant.service
 
+# REAL, CONFIRMED-ON-HARDWARE bug: this image has no HDMI/keyboard on
+# the Pi Zero 2 W's single USB-OTG port (already used for gadget
+# networking), yet two independent interactive first-boot wizards were
+# still enabled and blocked boot indefinitely waiting for console
+# input that could never arrive:
+#   - userconfig.service (raspberrypi-sys-mods' userconf-pi) prompts to
+#     create a user account. It's gated on /boot/firmware/userconf.txt
+#     existing, NOT on whether pi-gen's own FIRST_USER_NAME/PASS already
+#     created one via chpasswd at build time (confirmed: the "pi" user's
+#     /etc/shadow entry already has a real password hash from the build,
+#     yet this still prompted on real hardware) — the two mechanisms are
+#     independent, so setting FIRST_USER_PASS in pi-gen/config alone
+#     does not suppress it.
+#   - systemd-firstboot.service (--prompt-locale --prompt-keymap
+#     --prompt-timezone --prompt-root-password) is gated on
+#     ConditionFirstBoot=yes, which evaluates true on real hardware
+#     since a fresh /etc/machine-id gets generated on first real boot
+#     (confirmed via forensic inspection of a hung card). Locale/keymap/
+#     timezone are already set at build time via pi-gen's own
+#     LOCALE_DEFAULT/KEYBOARD_KEYMAP/TIMEZONE_DEFAULT, so this unit has
+#     nothing left to usefully prompt for anyway.
+#
+# REAL BUG in a first attempt at this fix: plain `systemctl disable
+# userconfig.service` here was silently undone later in the same build
+# — confirmed via build log evidence: userconf-pi's package gets
+# (re)processed by dpkg AFTER this script runs (triggered by the later
+# 05a-pin-kernel stage's own apt purge/install cycle firing dpkg
+# triggers for already-installed packages), which re-creates the
+# multi-user.target.wants symlink from the package's own default
+# preset, undoing a plain disable. `mask` doesn't have this problem —
+# it points the unit straight at /dev/null, and dpkg's own
+# deb-systemd-helper explicitly skips re-enabling units it finds
+# already masked — confirmed effective for systemd-firstboot.service
+# below under the exact same later-stage conditions.
+systemctl mask userconfig.service
+systemctl mask systemd-firstboot.service
+
 # REAL GAP FIXED HERE: nothing in this pipeline ever enabled the SSH
 # server. Stock Raspberry Pi OS Lite images ship openssh-server
 # installed but NOT started/enabled by default (a deliberate upstream
@@ -37,76 +74,46 @@ systemctl enable pwnagotchi.service
 echo "pwnagotchi" > /etc/hostname
 sed -i "s/127.0.1.1.*/127.0.1.1\tpwnagotchi/" /etc/hosts
 
-# USB gadget networking (see 00-run.sh's usb0.nmconnection install) — the
-# real original project's own approach, ported from the deleted
-# builder's sdcard/boot/cmdline.txt (git show 0fdc2b6d:sdcard/boot/
-# cmdline.txt): dtoverlay=dwc2 puts the USB controller into gadget/OTG
-# mode, modules-load=dwc2,g_ether loads the actual Ethernet-gadget
-# kernel module at boot. Neither was present in this image before —
-# only [cm4]/[cm5]/[pi5]-conditional overlays existed in config.txt,
-# none of which apply to the Pi Zero 2 W, so USB gadget networking
-# never worked at all, independent of anything else.
+# USB gadget networking — REPLACES this pipeline's own earlier
+# hand-rolled approach (single static-IP NetworkManager profile,
+# modules-load=dwc2,g_ether + dwc2.lpm_enable=0 via cmdline.txt, and a
+# custom 70-usb0.link rename rule) after that approach consistently
+# never brought up carrier across many real Pi Zero 2 W boot attempts.
+# This is instead ported EXACTLY from a real, working official
+# jayofelony/pwnagotchi 2.9.5.4 release image, confirmed by SSHing into
+# it live and inspecting its actual config on the same hardware/cable/
+# host that the old approach failed on:
+#   - dtoverlay=dwc2,dr_mode=peripheral in config.txt (unchanged, this
+#     part was already correct and matches the official image)
+#   - g_ether loaded via /etc/modules-load.d/usb-gadget.conf (see
+#     00-run.sh), NOT cmdline.txt's modules-load= parameter — the
+#     official image's cmdline.txt has neither modules-load=dwc2,g_ether
+#     nor dwc2.lpm_enable=0 at all
+#   - two NetworkManager profiles (usb0-client.nmconnection,
+#     usb0-shared.nmconnection, see 00-run.sh) instead of one static
+#     profile — the "shared" one runs NetworkManager's own dnsmasq to
+#     hand the connecting host a real DHCP lease automatically
+#   - NO custom .link rename rule: the official image only has the
+#     stock 73-usb-net-by-mac.link (Debian/systemd upstream), yet its
+#     gadget interface still shows up as "usb0" — that by-mac rename
+#     rule apparently doesn't trigger the same way on the gadget/device
+#     side as it does on a host observing an external USB-Ethernet
+#     adapter, so the custom rename file this pipeline added earlier
+#     was based on a misdiagnosis and is unnecessary
 #
-# dr_mode=peripheral (not bare dtoverlay=dwc2, which leaves dr_mode on
-# ID-pin auto-negotiation/OTG): real-hardware testing through a USB-C
-# dock/hub (not a direct port) repeatedly showed the gadget enumerate
-# correctly at the USB descriptor level but never assert carrier —
-# consistent with OTG ID-pin sensing being ambiguous through an
-# intermediary hub. Forcing peripheral mode explicitly removes that
-# ambiguity. Not yet independently confirmed to be necessary on its own
-# (tested together with dwc2.lpm_enable=0 below and the usb0 interface
-# fixes in 00-run.sh); kept because it matches the deployment topology
-# actually being tested against (laptop dock, not a bare port) and has
-# no downside for a device-only Pi Zero 2 W gadget port.
-#
-# REAL BUG FIXED HERE: a bare `>>` append lands wherever the file
-# currently ENDS — and stock Raspberry Pi OS config.txt files end with a
-# series of hardware-conditional sections (`[cm4]`, `[cm5]`, `[pi5]`,
-# etc., each staying in effect until EOF or the next `[section]` line).
-# If the base image's LAST section header happens to be one of those
-# (very likely — they're appended in Pi-model release order), a plain
-# `>> config.txt` append lands INSIDE that section, i.e. our dtoverlay
-# would apply ONLY on a Pi 5/CM4/CM5 and silently never take effect on
-# the Pi Zero 2 W this image actually targets — a silent, totally
-# non-obvious way for USB gadget networking to never work. Real
-# Raspberry Pi Foundation-documented fix: force an `[all]` section
-# marker first, which unconditionally re-opens the "applies to every
-# model" scope regardless of whatever conditional section preceded it,
-# and stays in effect until the next `[section]` (there is none after
-# this, so it holds for everything we append below too).
+# REAL BUG FIXED HERE (still applies): a bare `>>` append lands
+# wherever the file currently ENDS — and stock Raspberry Pi OS
+# config.txt files end with a series of hardware-conditional sections
+# (`[cm4]`, `[cm5]`, `[pi5]`, etc., each staying in effect until EOF or
+# the next `[section]` line). If the base image's LAST section header
+# happens to be one of those (very likely — they're appended in
+# Pi-model release order), a plain `>> config.txt` append lands INSIDE
+# that section, i.e. our dtoverlay would apply ONLY on a Pi 5/CM4/CM5
+# and silently never take effect on the Pi Zero 2 W this image actually
+# targets. Real Raspberry Pi Foundation-documented fix: force an
+# `[all]` section marker first, which unconditionally re-opens the
+# "applies to every model" scope regardless of whatever conditional
+# section preceded it.
 if ! grep -q "^dtoverlay=dwc2,dr_mode=peripheral$" /boot/firmware/config.txt; then
   printf '\n[all]\ndtoverlay=dwc2,dr_mode=peripheral\n' >> /boot/firmware/config.txt
 fi
-# dwc_otg.lpm_enable=0 (dwc2 on this modern kernel, dwc_otg was the
-# legacy driver name) — present in the real original project's own
-# cmdline.txt (git show 0fdc2b6d:sdcard/boot/cmdline.txt) and never
-# ported over until now. Disables USB Link Power Management, a
-# well-documented Raspberry Pi gadget-mode fix for exactly the symptom
-# seen here: the gadget enumerates but the link never stabilizes.
-if ! grep -q "dwc2.lpm_enable=0" /boot/firmware/cmdline.txt; then
-  sed -i "s/^/dwc2.lpm_enable=0 /" /boot/firmware/cmdline.txt
-fi
-if ! grep -q "modules-load=dwc2,g_ether" /boot/firmware/cmdline.txt; then
-  sed -i "s/\$/ modules-load=dwc2,g_ether/" /boot/firmware/cmdline.txt
-fi
-
-# Real, confirmed-on-hardware bug: a stock systemd udev rule
-# (/usr/lib/systemd/network/73-usb-net-by-mac.link, Debian/systemd
-# upstream, not ours) renames ANY USB network device to a MAC-based
-# name (matches Path=*-usb-*) before NetworkManager ever sees it —
-# including g_ether's gadget interface, which the kernel initially
-# names "usb0". Since usb0.nmconnection matches on the literal name
-# "usb0" (see 00-run.sh), the by-mac rename meant that profile could
-# never actually apply. A higher-priority (lower-numbered, sorts first)
-# .link file pinning the gadget interface's name back to "usb0" fixes
-# this. Matches on the g_ether driver specifically, not just any USB
-# net device, so it doesn't affect the TP-Link USB-Ethernet adapter or
-# anything else plugged into a real USB port.
-install -d /etc/systemd/network
-cat > /etc/systemd/network/70-usb0.link <<'EOF'
-[Match]
-Driver=g_ether
-
-[Link]
-Name=usb0
-EOF

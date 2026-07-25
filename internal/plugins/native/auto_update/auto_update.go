@@ -129,7 +129,7 @@ func (p *Plugin) Name() string { return "auto-update" }
 func (p *Plugin) Metadata() pluginmanager.Metadata {
 	return pluginmanager.Metadata{
 		Version:     "1.1.1",
-		Author:      "evilsocket@gmail.com",
+		Author:      "evilsocket@gmail.com (original), Go port by raf181",
 		License:     "GPL3",
 		Description: "This plugin checks when updates are available and applies them when internet is available.",
 	}

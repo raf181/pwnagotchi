@@ -61,7 +61,7 @@ func (p *Plugin) Name() string { return "memtemp" }
 func (p *Plugin) Metadata() pluginmanager.Metadata {
 	return pluginmanager.Metadata{
 		Version:     "1.0.2",
-		Author:      "https://github.com/xenDE",
+		Author:      "https://github.com/xenDE (original), Go port by raf181",
 		License:     "GPL3",
 		Description: "A plugin that will display memory/cpu usage and temperature",
 	}

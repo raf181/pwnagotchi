@@ -58,7 +58,7 @@ func (p *Plugin) Name() string { return "webgpsmap" }
 func (p *Plugin) Metadata() pluginmanager.Metadata {
 	return pluginmanager.Metadata{
 		Version:     "1.4.0",
-		Author:      "https://github.com/xenDE and https://github.com/dadav",
+		Author:      "https://github.com/xenDE and https://github.com/dadav (original), Go port by raf181",
 		License:     "GPL3",
 		Description: "a plugin for pwnagotchi that shows a openstreetmap with positions of ap-handshakes in your webbrowser",
 		HasWebhook:  true,

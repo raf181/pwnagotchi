@@ -48,7 +48,7 @@ func (p *Plugin) Name() string { return "wittypi" }
 func (p *Plugin) Metadata() pluginmanager.Metadata {
 	return pluginmanager.Metadata{
 		Version:     "1.0.0",
-		Author:      "https://github.com/krishenriksen",
+		Author:      "https://github.com/krishenriksen (original), Go port by raf181",
 		License:     "GPL3",
 		Description: "A plugin that will display battery info from Witty Pi 4 L3V7",
 	}

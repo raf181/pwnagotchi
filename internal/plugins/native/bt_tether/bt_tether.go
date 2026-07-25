@@ -189,9 +189,10 @@ func (p *Plugin) Name() string { return "bt-tether" }
 func (p *Plugin) Metadata() pluginmanager.Metadata {
 	return pluginmanager.Metadata{
 		Version:     "1.2.5",
-		Author:      "wsvdmeer",
+		Author:      "wsvdmeer (original), Go port by raf181",
 		License:     "GPL3",
 		Description: "Guided Bluetooth tethering with user instructions",
+		HasWebhook:  true,
 	}
 }
 

@@ -77,7 +77,7 @@ func (p *Plugin) Name() string { return "fix_services" }
 func (p *Plugin) Metadata() pluginmanager.Metadata {
 	return pluginmanager.Metadata{
 		Version:     "1.0.1",
-		Author:      "jayofelony",
+		Author:      "jayofelony (original), Go port by raf181",
 		License:     "GPL3",
 		Description: "Fix blindness, firmware crashes and brain not being loaded. Auto-disables for external WiFi adapters.",
 	}

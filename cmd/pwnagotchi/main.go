@@ -491,13 +491,25 @@ func registerNativePlugins(mgr *pluginmanager.Manager, cfg config.Map, gridClien
 	// living in internal/web (predating the plugin manager) — folded in
 	// here only for accurate Manager.List()/toggle bookkeeping; their
 	// actual HTTP routes stay exactly as internal/web already serves them.
+	//
+	// REAL BUG FIXED HERE: HasWebhook was never set on either of these
+	// Metadata literals, defaulting to false. internal/web/templates/
+	// plugins.tmpl only renders a plugin's name as a clickable link to
+	// its dashboard when HasWebhook is true (`{{if .HasWebhook}}`) —
+	// with it false, the /plugins listing page rendered "logtail" and
+	// "webcfg" as plain, unclickable text, even though both dashboards
+	// work correctly when reached directly by URL (confirmed via direct
+	// HTTP testing: /plugins/webcfg and /plugins/logtail both serve real
+	// content). Confirmed on real hardware: this was the actual reason
+	// neither was reachable from the plugin listing page.
 	if err := mgr.Register(pluginhost.MetadataOnlyPlugin{
 		PluginName: "logtail",
 		Meta: pluginmanager.Metadata{
 			Version:     "0.1.0",
-			Author:      "33197631+dadav@users.noreply.github.com",
+			Author:      "33197631+dadav@users.noreply.github.com (original), Go port by raf181",
 			License:     "GPL3",
 			Description: "This plugin tails the logfile.",
+			HasWebhook:  true,
 		},
 	}); err != nil {
 		log.Printf("pluginmanager: %v", err)
@@ -506,9 +518,10 @@ func registerNativePlugins(mgr *pluginmanager.Manager, cfg config.Map, gridClien
 		PluginName: "webcfg",
 		Meta: pluginmanager.Metadata{
 			Version:     "1.0.0",
-			Author:      "33197631+dadav@users.noreply.github.com modified by wsvdmeer",
+			Author:      "33197631+dadav@users.noreply.github.com modified by wsvdmeer (original), Go port by raf181",
 			License:     "GPL3",
 			Description: "This plugin allows the user to make runtime changes.",
+			HasWebhook:  true,
 		},
 	}); err != nil {
 		log.Printf("pluginmanager: %v", err)

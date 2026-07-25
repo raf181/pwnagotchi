@@ -74,9 +74,10 @@ func (p *Plugin) Name() string { return "pwnstore_ui" }
 func (p *Plugin) Metadata() pluginmanager.Metadata {
 	return pluginmanager.Metadata{
 		Version:     "1.2.6",
-		Author:      "WPA2",
+		Author:      "WPA2 (original), Go port by raf181",
 		License:     "GPL3",
 		Description: "Plugin store with web interface for browsing and installing plugins",
+		HasWebhook:  true,
 	}
 }
 

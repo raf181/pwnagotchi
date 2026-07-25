@@ -55,7 +55,11 @@ var _ pluginmanager.ViewCapability = (*fakeView)(nil)
 func TestMetadataMatchesRealPythonPlugin(t *testing.T) {
 	p := New()
 	meta := p.Metadata()
-	if meta.Author != "evilsocket@gmail.com" || meta.Version != "1.0.0" || meta.License != "GPL3" {
+	// Author now credits both the original Python plugin's author and
+	// this Go port, rather than the original author alone — see
+	// cmd/pwnagotchi/main.go's registerNativePlugins for the same
+	// pattern applied to webcfg/logtail.
+	if meta.Author != "evilsocket@gmail.com (original), Go port by raf181" || meta.Version != "1.0.0" || meta.License != "GPL3" {
 		t.Fatalf("unexpected metadata: %+v", meta)
 	}
 	if !meta.HasWebhook {

@@ -131,9 +131,10 @@ func (p *Plugin) Name() string { return "wigle" }
 func (p *Plugin) Metadata() pluginmanager.Metadata {
 	return pluginmanager.Metadata{
 		Version:     pluginVersionStr,
-		Author:      "Dadav and updated by Jayofelony and fmatray",
+		Author:      "Dadav and updated by Jayofelony and fmatray (original), Go port by raf181",
 		License:     "GPL3",
 		Description: "This plugin automatically uploads collected WiFi to wigle.net",
+		HasWebhook:  true,
 	}
 }
 

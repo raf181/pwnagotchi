@@ -125,7 +125,7 @@ func (p *Plugin) Name() string { return "session-stats" }
 func (p *Plugin) Metadata() pluginmanager.Metadata {
 	return pluginmanager.Metadata{
 		Version:     "0.2.0",
-		Author:      "33197631+dadav@users.noreply.github.com modified by wsvdmeer",
+		Author:      "33197631+dadav@users.noreply.github.com modified by wsvdmeer (original), Go port by raf181",
 		License:     "GPL3",
 		Description: "Displays WiFi capture stats including networks, handshakes, and deauths.",
 		HasWebhook:  true,

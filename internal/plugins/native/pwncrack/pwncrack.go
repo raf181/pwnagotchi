@@ -81,7 +81,7 @@ func (p *Plugin) Name() string { return "pwncrack" }
 func (p *Plugin) Metadata() pluginmanager.Metadata {
 	return pluginmanager.Metadata{
 		Version:     "1.0.0",
-		Author:      "Terminatoror",
+		Author:      "Terminatoror (original), Go port by raf181",
 		License:     "GPL3",
 		Description: "Converts .pcap files to .hc22000 and uploads them to pwncrack.org when internet is available.",
 	}

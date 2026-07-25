@@ -129,11 +129,12 @@ func (p *Plugin) Name() string { return "pisugarx" }
 func (p *Plugin) Metadata() pluginmanager.Metadata {
 	return pluginmanager.Metadata{
 		Version: "1.2",
-		Author:  "jayofelony",
+		Author:  "jayofelony (original), Go port by raf181",
 		License: "GPL3",
 		Description: "A plugin that will add a voltage indicator for the PiSugar batteries. " +
 			"Rotation of battery status can be enabled or disabled via configuration. " +
 			"Additionally, when rotation is disabled, you can choose which metric to display.",
+		HasWebhook: true,
 	}
 }
 

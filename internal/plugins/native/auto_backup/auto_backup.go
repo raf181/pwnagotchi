@@ -104,7 +104,7 @@ func (p *Plugin) Name() string { return "auto_backup" }
 func (p *Plugin) Metadata() pluginmanager.Metadata {
 	return pluginmanager.Metadata{
 		Version:     "2.2",
-		Author:      "WPA2",
+		Author:      "WPA2 (original), Go port by raf181",
 		License:     "GPL3",
 		Description: "Backs up Pwnagotchi configuration and data, keeping recent backups.",
 		HasWebhook:  true,

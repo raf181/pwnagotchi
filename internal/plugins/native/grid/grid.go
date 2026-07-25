@@ -128,9 +128,10 @@ func (p *Plugin) Name() string { return "grid" }
 func (p *Plugin) Metadata() pluginmanager.Metadata {
 	return pluginmanager.Metadata{
 		Version:     "1.1.0",
-		Author:      "evilsocket@gmail.com",
+		Author:      "evilsocket@gmail.com (original), Go port by raf181",
 		License:     "GPL3",
 		Description: "This plugin signals the unit cryptographic identity and list of pwned networks and list of pwned networks to opwngrid.xyz",
+		HasWebhook:  true,
 	}
 }
 

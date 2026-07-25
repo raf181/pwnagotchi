@@ -55,7 +55,7 @@ func (p *Plugin) Name() string { return "cache" }
 func (p *Plugin) Metadata() pluginmanager.Metadata {
 	return pluginmanager.Metadata{
 		Version:     "1.0.0",
-		Author:      "fmatray",
+		Author:      "fmatray (original), Go port by raf181",
 		License:     "GPL3",
 		Description: "A simple plugin to cache AP informations",
 	}

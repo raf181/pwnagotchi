@@ -91,7 +91,7 @@ func (p *Plugin) Name() string { return "ohcapi" }
 func (p *Plugin) Metadata() pluginmanager.Metadata {
 	return pluginmanager.Metadata{
 		Version:     "1.1.0",
-		Author:      "Rohan Dayaram",
+		Author:      "Rohan Dayaram (original), Go port by raf181",
 		License:     "GPL3",
 		HasWebhook:  true,
 		Description: "Uploads WPA/WPA2 handshakes to OnlineHashCrack.com using the new API (V2), no dashboard.",

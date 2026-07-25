@@ -60,7 +60,7 @@ func (p *Plugin) Name() string { return "gpio_buttons" }
 func (p *Plugin) Metadata() pluginmanager.Metadata {
 	return pluginmanager.Metadata{
 		Version:     "1.0.0",
-		Author:      "ratmandu@gmail.com",
+		Author:      "ratmandu@gmail.com (original), Go port by raf181",
 		License:     "GPL3",
 		Description: "GPIO Button support plugin",
 	}

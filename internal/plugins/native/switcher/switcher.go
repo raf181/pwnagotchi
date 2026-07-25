@@ -72,7 +72,7 @@ func (p *Plugin) Name() string { return "switcher" }
 func (p *Plugin) Metadata() pluginmanager.Metadata {
 	return pluginmanager.Metadata{
 		Version:     "0.0.1",
-		Author:      "33197631+dadav@users.noreply.github.com",
+		Author:      "33197631+dadav@users.noreply.github.com (original), Go port by raf181",
 		License:     "GPL3",
 		Description: "This plugin is a generic task scheduler.",
 	}

@@ -77,7 +77,7 @@ func (p *Plugin) Name() string { return "gps" }
 func (p *Plugin) Metadata() pluginmanager.Metadata {
 	return pluginmanager.Metadata{
 		Version:     "1.0.1",
-		Author:      "evilsocket@gmail.com",
+		Author:      "evilsocket@gmail.com (original), Go port by raf181",
 		License:     "GPL3",
 		Description: "Save GPS coordinates whenever an handshake is captured.",
 	}

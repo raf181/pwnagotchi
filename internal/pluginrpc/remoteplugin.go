@@ -47,6 +47,7 @@ func (p *RemotePlugin) Metadata() pluginmanager.Metadata {
 func (p *RemotePlugin) OnLoad(caps pluginmanager.Capabilities) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	p.failed = nil
 
 	dispatcher := NewCapabilityDispatcher(caps, p.capabilities)
 	host, err := Spawn(p.name, p.execPath, p.manifest, Options{
@@ -97,11 +98,15 @@ func (p *RemotePlugin) HandleEvent(event string, args []interface{}) {
 	if host == nil || !host.Alive() {
 		return
 	}
-	_ = host.SendEvent(event, args)
+	if err := host.SendEvent(event, args); err != nil {
+		p.mu.Lock()
+		p.failed = err
+		p.mu.Unlock()
+	}
 }
 
-// Failed reports the most recent crash/hang reason, if any, for
-// diagnostics (a future `pwnagotchi plugins doctor` command).
+// Failed reports the most recent crash/hang reason for manager status and
+// plugin diagnostics.
 func (p *RemotePlugin) Failed() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()

@@ -20,6 +20,7 @@ package autobackup
 import (
 	"context"
 	"fmt"
+	"html"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -187,17 +188,17 @@ func (p *Plugin) isBackupDueLocked() bool {
 func (p *Plugin) OnWebhook(subpath string, r *http.Request) (pluginmanager.WebhookResponse, error) {
 	switch {
 	case r.Method == http.MethodGet && (subpath == "" || subpath == "/"):
-		return pluginmanager.WebhookResponse{Status: http.StatusOK, Body: []byte(p.statusPageHTML())}, nil
+		return pluginmanager.WebhookResponse{Status: http.StatusOK, Body: []byte(p.statusPageHTML(csrfFromRequest(r)))}, nil
 	case r.Method == http.MethodPost && (subpath == "backup" || subpath == "/backup"):
 		result := p.ManualBackup()
-		body := fmt.Sprintf(`<html><head><title>AUTO Backup</title></head><body><h1>AUTO Backup</h1><p><b>%s</b></p><a href="/plugins/auto_backup/">Back</a></body></html>`, result)
+		body := fmt.Sprintf(`<html><head><title>AUTO Backup</title></head><body><h1>AUTO Backup</h1><p><b>%s</b></p><a href="/plugins/auto_backup/">Back</a></body></html>`, html.EscapeString(result))
 		return pluginmanager.WebhookResponse{Status: http.StatusOK, Body: []byte(body)}, nil
 	default:
 		return pluginmanager.WebhookResponse{Status: http.StatusNotFound, Body: []byte("Not found")}, nil
 	}
 }
 
-func (p *Plugin) statusPageHTML() string {
+func (p *Plugin) statusPageHTML(csrf string) string {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	status := "Ready"
@@ -217,15 +218,23 @@ func (p *Plugin) statusPageHTML() string {
 	b.WriteString("<h1>AUTO Backup</h1>")
 	b.WriteString("<p>Status: <b>" + status + "</b></p>")
 	b.WriteString(`<form method="POST" action="/plugins/auto_backup/backup">`)
+	b.WriteString(`<input type="hidden" name="csrf_token" value="` + html.EscapeString(csrf) + `">`)
 	b.WriteString(`<input type="submit" value="Start Manual Backup" class="btn primary"></form><hr>`)
 	b.WriteString("<h2>Configuration</h2>")
 	b.WriteString(`<table border="1" cellpadding="5">`)
-	b.WriteString("<tr><td><b>Backup Location:</b></td><td>" + loc + "</td></tr>")
+	b.WriteString("<tr><td><b>Backup Location:</b></td><td>" + html.EscapeString(loc) + "</td></tr>")
 	b.WriteString("<tr><td><b>Interval:</b></td><td>" + strconv.Itoa(p.intervalSeconds/60) + " minutes</td></tr>")
 	b.WriteString("<tr><td><b>Max Backups:</b></td><td>" + strconv.Itoa(p.maxBackups) + "</td></tr>")
-	b.WriteString("<tr><td><b>Include Paths:</b></td><td>" + include + "</td></tr>")
+	b.WriteString("<tr><td><b>Include Paths:</b></td><td>" + html.EscapeString(include) + "</td></tr>")
 	b.WriteString("</table></body></html>")
 	return b.String()
+}
+
+func csrfFromRequest(r *http.Request) string {
+	if cookie, err := r.Cookie("csrf_token"); err == nil {
+		return cookie.Value
+	}
+	return ""
 }
 
 // ManualBackup ports manual_backup.

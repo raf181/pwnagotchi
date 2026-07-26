@@ -121,3 +121,20 @@ func TestUnzipNoStrip(t *testing.T) {
 		t.Fatalf("content = %s", got)
 	}
 }
+
+func TestUnzipRejectsEntriesOutsideDestination(t *testing.T) {
+	for _, name := range []string{"../outside.txt", "safe/../../outside.txt", "/absolute.txt"} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			zipPath := makeTestZip(t, map[string]string{name: "owned"})
+			destination := filepath.Join(dir, "out")
+
+			if err := Unzip(zipPath, destination, 0); err == nil {
+				t.Fatalf("Unzip accepted unsafe entry %q", name)
+			}
+			if _, err := os.Stat(filepath.Join(dir, "outside.txt")); !os.IsNotExist(err) {
+				t.Fatalf("unsafe entry %q wrote outside destination", name)
+			}
+		})
+	}
+}

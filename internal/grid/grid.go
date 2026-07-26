@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	neturl "net/url"
 	"os"
 	"os/exec"
 	"strings"
@@ -300,7 +301,11 @@ func (c *Client) MarkMessage(id int, mark string) (interface{}, error) {
 // SendMessage mirrors grid.send_message: POSTs the UTF-8 message bytes as
 // a raw body (not JSON), matching `call(path, message.encode('utf-8'))`.
 func (c *Client) SendMessage(to, message string) (interface{}, error) {
-	return c.Call(fmt.Sprintf("/unit/%s/inbox", to), []byte(message))
+	to = strings.TrimSpace(to)
+	if to == "" {
+		return nil, fmt.Errorf("grid: message recipient is empty")
+	}
+	return c.Call(fmt.Sprintf("/unit/%s/inbox", neturl.PathEscape(to)), []byte(message))
 }
 
 func readBrainJSON(path string) (map[string]interface{}, error) {

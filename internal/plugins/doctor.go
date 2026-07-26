@@ -19,7 +19,7 @@ import (
 // Unlike check-plugins.py (which imported the real Python
 // pwnagotchi.plugins package and called its loader), this never needs a
 // running daemon, a display, or any bus/network hardware: it validates
-// (1) every one of the 23 bundled plugins is present in the compiled-in
+// (1) every bundled plugin is present in the compiled-in
 // list this exact binary was built with, and (2) every locally installed
 // third-party plugin's real SHA-256 checksum still matches its manifest
 // (catching corruption/tampering since install — the same check Install
@@ -37,29 +37,30 @@ func Doctor(cfg config.Map) int {
 		fmt.Printf("  ok    %s (compiled-in)\n", n)
 	}
 
-	installed := installedManifests()
-	installedNames := make([]string, 0, len(installed))
-	for n := range installed {
-		installedNames = append(installedNames, n)
+	installed, scanErrs := scanInstalled()
+	fmt.Printf("\nInstalled third-party plugins: %d\n", len(installed))
+	fail := len(scanErrs) > 0
+	for _, err := range scanErrs {
+		fmt.Printf("  FAIL  %v\n", err)
 	}
-	sort.Strings(installedNames)
-
-	fmt.Printf("\nInstalled third-party plugins: %d\n", len(installedNames))
-	fail := false
-	for _, name := range installedNames {
-		m := installed[name]
-		execPath := filepath.Join(PluginInstallDir, name, name)
-		if err := m.VerifyExecutable(execPath); err != nil {
-			fmt.Printf("  FAIL  %s: %v\n", name, err)
+	for _, item := range installed {
+		if bundledPluginNames[item.name] {
+			fmt.Printf("  FAIL  %s: installed plugin conflicts with a bundled plugin\n", item.name)
 			fail = true
 			continue
 		}
-		fmt.Printf("  ok    %s %s (checksum verified)\n", name, m.Version)
+		execPath := filepath.Join(PluginInstallDir, item.name, item.name)
+		if err := item.manifest.VerifyExecutable(execPath); err != nil {
+			fmt.Printf("  FAIL  %s: %v\n", item.name, err)
+			fail = true
+			continue
+		}
+		fmt.Printf("  ok    %s %s (checksum verified, target matches)\n", item.name, item.manifest.Version)
 	}
 
 	fmt.Println()
 	if fail {
-		fmt.Println("DOCTOR: one or more installed third-party plugins failed checksum verification.")
+		fmt.Println("DOCTOR: one or more installed third-party plugins failed validation.")
 		return 1
 	}
 	fmt.Println("DOCTOR: all checks passed.")

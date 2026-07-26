@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/jayofelony/pwnagotchi/internal/config"
 	"github.com/jayofelony/pwnagotchi/internal/grid"
@@ -104,8 +105,13 @@ func (s *Server) Start() {
 	}
 
 	s.httpServer = &http.Server{
-		Addr:    net.JoinHostPort(s.address, itoa(s.port)),
-		Handler: handler,
+		Addr:              net.JoinHostPort(s.address, itoa(s.port)),
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       2 * time.Minute,
+		MaxHeaderBytes:    1 << 20,
 	}
 
 	displayAddr := s.address
@@ -113,6 +119,11 @@ func (s *Server) Start() {
 		displayAddr = "[::]"
 	}
 	log.Printf("web ui available at http://%s:%d/", displayAddr, s.port)
+	if !s.authEnabled {
+		log.Printf("web: WARNING: authentication is disabled; anyone who can reach this address can control the unit")
+	} else if s.username == "changeme" || s.password == "changeme" {
+		log.Printf("web: WARNING: default web credentials are configured; change ui.web.username and ui.web.password")
+	}
 
 	go func() {
 		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -137,7 +148,7 @@ func (s *Server) withCORS(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", s.origin)
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-CSRF-Token, X-CSRFToken")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return

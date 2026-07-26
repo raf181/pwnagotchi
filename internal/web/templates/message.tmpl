@@ -1,6 +1,9 @@
 {{define "title"}}Message from {{.message_sender_name}}{{end}}
 {{define "script"}}// Mark message as read
-fetch('/inbox/{{.message_id}}/seen')
+fetch('/inbox/{{.message_id}}/seen', {
+  method: 'POST',
+  headers: {'X-CSRF-Token': '{{.csrf_token}}'}
+})
   .then(res => res.text())
   .then(data => console.log('Message marked as read'));{{end}}
 {{define "content"}}
@@ -24,12 +27,10 @@ fetch('/inbox/{{.message_id}}/seen')
   </div>
   <div class="card-footer">
     <a href="/inbox/new?to={{.message_sender}}" class="btn btn-primary">Reply</a>
-    <a
-      href="/inbox/{{.message_id}}/deleted"
-      class="btn danger"
-      onclick="return confirm('Are you sure?');"
-      >Delete</a
-    >
+    <form method="post" action="/inbox/{{.message_id}}/deleted" style="display:inline">
+      <input type="hidden" name="csrf_token" value="{{.csrf_token}}">
+      <button type="submit" class="btn danger" onclick="return confirm('Are you sure?');">Delete</button>
+    </form>
   </div>
 </div>
 {{end}}

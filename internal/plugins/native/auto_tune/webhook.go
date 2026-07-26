@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -14,6 +15,15 @@ import (
 	"github.com/jayofelony/pwnagotchi/internal/config"
 	"github.com/jayofelony/pwnagotchi/internal/pluginmanager"
 )
+
+var presetNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._ -]{0,63}$`)
+
+func csrfFromRequest(r *http.Request) string {
+	if cookie, err := r.Cookie("csrf_token"); err == nil {
+		return cookie.Value
+	}
+	return ""
+}
 
 // preset mirrors the JSON shape _save_preset/_load_preset read and write.
 type preset struct {
@@ -44,6 +54,9 @@ func (p *Plugin) listPresetFiles() []string {
 // string) personality field from the live fullCfg plus every scalar
 // plugin option.
 func (p *Plugin) savePreset(name string) error {
+	if !presetNamePattern.MatchString(name) {
+		return fmt.Errorf("invalid preset name")
+	}
 	if err := os.MkdirAll(p.presetsDir, 0o755); err != nil {
 		return err
 	}
@@ -82,6 +95,9 @@ func (p *Plugin) savePreset(name string) error {
 // saved plugin options back into p.opts, reporting exactly which
 // parameters actually changed.
 func (p *Plugin) loadPreset(name string) (bool, string) {
+	if !presetNamePattern.MatchString(name) {
+		return false, "Invalid preset name"
+	}
 	blob, err := os.ReadFile(filepath.Join(p.presetsDir, name+".json"))
 	if err != nil {
 		return false, "Preset file not found"
@@ -115,6 +131,7 @@ func (p *Plugin) loadPreset(name string) (bool, string) {
 	for k, v := range data.PluginSettings {
 		changed, old := p.opts.applyIfKnown(k, v)
 		if changed {
+			p.setPluginConfigLocked(k, v)
 			changes = append(changes, fmt.Sprintf("plugin.%s: %v -> %v", k, old, v))
 		}
 	}
@@ -128,6 +145,9 @@ func (p *Plugin) loadPreset(name string) (bool, string) {
 
 // deletePreset ports _delete_preset.
 func (p *Plugin) deletePreset(name string) bool {
+	if !presetNamePattern.MatchString(name) {
+		return false
+	}
 	path := filepath.Join(p.presetsDir, name+".json")
 	if _, err := os.Stat(path); err != nil {
 		return false
@@ -327,7 +347,7 @@ func (p *Plugin) OnWebhook(subpath string, r *http.Request) (pluginmanager.Webho
 	switch r.Method {
 	case http.MethodGet:
 		if subpath == "" || subpath == "/" {
-			body := p.renderIndexPage()
+			body := p.renderIndexPage(csrfFromRequest(r))
 			return pluginmanager.WebhookResponse{Status: http.StatusOK, Body: []byte(body)}, nil
 		}
 		return pluginmanager.WebhookResponse{Status: http.StatusNotFound}, nil
@@ -342,10 +362,10 @@ func (p *Plugin) OnWebhook(subpath string, r *http.Request) (pluginmanager.Webho
 	}
 }
 
-func (p *Plugin) renderIndexPage() string {
+func (p *Plugin) renderIndexPage(csrf string) string {
 	var b strings.Builder
 	b.WriteString("<html><head><title>AUTO Tune</title></head><body><h1>AUTO Tune</h1><p>")
-	b.WriteString(p.showEditForm())
+	b.WriteString(p.showEditForm(csrf))
 	b.WriteString(p.showHistogram())
 	b.WriteString(p.showChistos())
 	p.mu.Lock()
@@ -360,9 +380,10 @@ func (p *Plugin) renderIndexPage() string {
 
 // showEditForm ports Plugin.showEditForm: the preset controls plus an
 // editable table of every scalar personality/plugin-option field.
-func (p *Plugin) showEditForm() string {
+func (p *Plugin) showEditForm(csrf string) string {
 	var b strings.Builder
 	b.WriteString(`<form method=post action="update">`)
+	fmt.Fprintf(&b, `<input type="hidden" name="csrf_token" value="%s">`, html.EscapeString(csrf))
 	b.WriteString(`<div class="preset-section"><h2>Presets</h2>`)
 	b.WriteString(`<input type=text name=preset_name size=30 placeholder="Enter preset name">`)
 	b.WriteString(`<select name=selected_preset><option value="">Select a preset...</option>`)
@@ -408,8 +429,10 @@ func (p *Plugin) showEditForm() string {
 }
 
 func writeEditRow(b *strings.Builder, section, name string, v interface{}) {
-	fmt.Fprintf(b, `<tr><th>%s</th><td><input name="newval,%v,%s,%s" value="%v"></td></tr>`,
-		html.EscapeString(name), v, name, goTypeName(v), v)
+	oldValue := fmt.Sprint(v)
+	fieldName := fmt.Sprintf("newval,%s,%s,%s", oldValue, name, goTypeName(v))
+	fmt.Fprintf(b, `<tr><th>%s</th><td><input name="%s" value="%s"></td></tr>`,
+		html.EscapeString(name), html.EscapeString(fieldName), html.EscapeString(oldValue))
 	_ = section
 }
 
@@ -461,9 +484,9 @@ func (p *Plugin) showInteractions() string {
 		} else {
 			fmt.Fprintf(&b, "<tr><td><i>%s</i></td>", html.EscapeString(hostname))
 		}
-		fmt.Fprintf(&b, "<td>%s</td><td>%d</td>", mac, ch)
+		fmt.Fprintf(&b, "<td>%s</td><td>%d</td>", html.EscapeString(mac), ch)
 		fmt.Fprintf(&b, "<td>%d</td>", int(now.Sub(r.rec.lastSeen).Seconds()))
-		fmt.Fprintf(&b, "<td>%v</td>", rssi)
+		fmt.Fprintf(&b, "<td>%s</td>", html.EscapeString(fmt.Sprint(rssi)))
 		fmt.Fprintf(&b, "<td>%d</td><td>%d</td><td>%d</td><td>%d</td>", r.rec.seen, r.rec.assoc, r.rec.deauth, r.rec.handshake)
 		b.WriteString("</tr>\n")
 	}
@@ -476,16 +499,17 @@ func (p *Plugin) showInteractions() string {
 // field-name encoding the edit form emits.
 func (p *Plugin) handleUpdate(r *http.Request) string {
 	if err := r.ParseForm(); err != nil {
-		return fmt.Sprintf("<h1>Error parsing form: %v</h1>", err)
+		return fmt.Sprintf("<h1>Error parsing form: %s</h1>", html.EscapeString(err.Error()))
 	}
 
 	var b strings.Builder
+	configChanged := false
 	b.WriteString("<html><head><title>AUTO Tune Update!</title></head><body><h1>AUTO Tune Update</h1>")
 
 	if r.PostForm.Get("save_preset") != "" {
 		if name := strings.TrimSpace(r.PostForm.Get("preset_name")); name != "" {
 			if err := p.savePreset(name); err != nil {
-				fmt.Fprintf(&b, `<div class="error">Error saving preset: %v</div>`, err)
+				fmt.Fprintf(&b, `<div class="error">Error saving preset: %s</div>`, html.EscapeString(err.Error()))
 			} else {
 				fmt.Fprintf(&b, `<div class="success">Preset '%s' saved successfully!</div>`, html.EscapeString(name))
 			}
@@ -495,6 +519,7 @@ func (p *Plugin) handleUpdate(r *http.Request) string {
 	} else if r.PostForm.Get("load_preset") != "" {
 		if name := r.PostForm.Get("selected_preset"); name != "" {
 			ok, msg := p.loadPreset(name)
+			configChanged = ok
 			cls := "success"
 			if !ok {
 				cls = "error"
@@ -530,11 +555,17 @@ func (p *Plugin) handleUpdate(r *http.Request) string {
 			continue
 		}
 		if p.applyEdit(name, vtype, newVal) {
+			configChanged = true
 			fmt.Fprintf(&b, "<li>%s: %s -> %s</li>\n", html.EscapeString(name), html.EscapeString(oldStr), html.EscapeString(newVal))
 		}
 	}
 	b.WriteString("</ul>")
-	b.WriteString(p.showEditForm())
+	if configChanged {
+		if err := p.saveConfig(); err != nil {
+			fmt.Fprintf(&b, `<div class="error">Error saving configuration: %s</div>`, html.EscapeString(err.Error()))
+		}
+	}
+	b.WriteString(p.showEditForm(csrfFromRequest(r)))
 	b.WriteString(p.showHistogram())
 	b.WriteString(p.showChistos())
 	b.WriteString("</body></html>")
@@ -561,8 +592,45 @@ func (p *Plugin) applyEdit(name, vtype, val string) bool {
 			}
 		}
 	}
-	changed, _ := p.opts.applyIfKnown(name, parseTypedOptionsValue(vtype, val))
+	parsed := parseTypedOptionsValue(vtype, val)
+	changed, _ := p.opts.applyIfKnown(name, parsed)
+	if changed {
+		p.setPluginConfigLocked(name, parsed)
+	}
 	return changed
+}
+
+func (p *Plugin) setPluginConfigLocked(name string, value interface{}) {
+	if p.fullCfg == nil {
+		return
+	}
+	main, _ := p.fullCfg["main"].(config.Map)
+	if main == nil {
+		main = config.Map{}
+		p.fullCfg["main"] = main
+	}
+	plugins, _ := main["plugins"].(config.Map)
+	if plugins == nil {
+		plugins = config.Map{}
+		main["plugins"] = plugins
+	}
+	entry, _ := plugins[p.Name()].(config.Map)
+	if entry == nil {
+		entry = config.Map{"enabled": true}
+		plugins[p.Name()] = entry
+	}
+	entry[name] = value
+}
+
+func (p *Plugin) saveConfig() error {
+	p.mu.Lock()
+	cfg := p.fullCfg
+	path := p.configPath
+	p.mu.Unlock()
+	if cfg == nil || path == "" {
+		return nil
+	}
+	return config.SaveConfig(cfg, path)
 }
 
 func parseTyped(vtype, val string) (interface{}, bool) {

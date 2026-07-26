@@ -8,6 +8,7 @@ import (
 
 	"github.com/jayofelony/pwnagotchi/internal/config"
 	realgrid "github.com/jayofelony/pwnagotchi/internal/grid"
+	"github.com/jayofelony/pwnagotchi/internal/pluginmanager"
 )
 
 type fakeClient struct {
@@ -37,6 +38,31 @@ func (f *fakeClient) UpdateData(cfg config.Map, session realgrid.SessionSummary)
 }
 
 var _ GridClient = (*fakeClient)(nil)
+
+type fakeUnreadView struct {
+	count int
+	total int
+}
+
+func (v *fakeUnreadView) Set(string, string)     {}
+func (v *fakeUnreadView) Update(bool)            {}
+func (v *fakeUnreadView) Kind() string           { return "" }
+func (v *fakeUnreadView) HasElement(string) bool { return false }
+func (v *fakeUnreadView) RemoveElement(string)   {}
+func (v *fakeUnreadView) AddText(string, string, int, int, pluginmanager.FontStyle, bool, int) {
+}
+func (v *fakeUnreadView) AddLabeledValue(string, string, string, int, int, pluginmanager.FontStyle, pluginmanager.FontStyle, int) {
+}
+func (v *fakeUnreadView) OnUploading(string) {}
+func (v *fakeUnreadView) OnNormal()          {}
+func (v *fakeUnreadView) Width() int         { return 0 }
+func (v *fakeUnreadView) Height() int        { return 0 }
+func (v *fakeUnreadView) OnUnreadMessages(count, total int) {
+	v.count = count
+	v.total = total
+}
+
+var _ pluginmanager.ViewCapability = (*fakeUnreadView)(nil)
 
 func newTestReportedPath(t *testing.T) string {
 	t.Helper()
@@ -183,6 +209,37 @@ func TestOnInternetAvailableCallsUpdateDataAndInbox(t *testing.T) {
 	defer p.mu.Unlock()
 	if p.unreadMessages != 1 || p.totalMessages != 2 {
 		t.Fatalf("unread=%d total=%d, want 1/2", p.unreadMessages, p.totalMessages)
+	}
+}
+
+func TestCheckInboxBroadcastsAndUpdatesView(t *testing.T) {
+	client := &fakeClient{
+		inboxResult: []interface{}{
+			map[string]interface{}{"seen_at": nil},
+			map[string]interface{}{"seen_at": "2026-01-01"},
+		},
+	}
+	view := &fakeUnreadView{}
+	var event string
+	var args []interface{}
+	p := New(client, nil)
+	if err := p.OnLoad(pluginmanager.Capabilities{
+		View: view,
+		Emit: func(gotEvent string, gotArgs ...interface{}) {
+			event = gotEvent
+			args = gotArgs
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	p.checkInbox()
+
+	if event != "unread_inbox" || len(args) != 1 || args[0] != 1 {
+		t.Fatalf("unexpected emitted event: %q %#v", event, args)
+	}
+	if view.count != 1 || view.total != 2 {
+		t.Fatalf("view unread state = %d/%d, want 1/2", view.count, view.total)
 	}
 }
 

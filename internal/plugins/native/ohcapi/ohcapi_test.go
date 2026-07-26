@@ -129,10 +129,9 @@ func TestOnLoadReadyWithAPIKeyAndDefaults(t *testing.T) {
 
 func TestExtractEssidBssidFromHashNormal(t *testing.T) {
 	essidHex := "68656c6c6f" // "hello"
-	line := "WPA*02*hash*aabbccddeeff*" + essidHex + "*extra*more"
 	// build with correct field indices: 0..5 -> field[3]=mac field[5]=essidhex
 	parts := []string{"WPA", "02", "hash", "aabbccddeeff", "sta", essidHex}
-	line = joinStar(parts)
+	line := joinStar(parts)
 	essid, bssid := extractEssidBssidFromHash(line)
 	if essid != "hello" {
 		t.Fatalf("essid = %q, want hello", essid)
@@ -140,7 +139,6 @@ func TestExtractEssidBssidFromHashNormal(t *testing.T) {
 	if bssid != "aa:bb:cc:dd:ee:ff" {
 		t.Fatalf("bssid = %q, want aa:bb:cc:dd:ee:ff", bssid)
 	}
-	_ = line
 }
 
 func joinStar(parts []string) string {

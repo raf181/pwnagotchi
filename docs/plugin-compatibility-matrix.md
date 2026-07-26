@@ -1,139 +1,106 @@
-# Plugin Compatibility Matrix
+# Plugin Compatibility
 
-Inventory and verification status of every bundled plugin, now that all 23
-+ `example` are native Go implementations on `internal/pluginmanager`
-(see `docs/plugin-development.md` for the plugin API itself and
-`docs/migration-ledger.md` for how each one got here). The Python
-subprocess bridge this document used to describe has been deleted
-entirely — there is no fallback to real Python for any bundled plugin.
+The manager exposes 24 built-in entries: the 23 Python bundled plugins and the
+`example` reference plugin, all implemented in Go. No built-in executes Python.
 
-## Architecture: native Go plugins on `internal/pluginmanager`
+`enabled` below is the packaged default. A dash means the plugin is available
+but has no default config section and must be configured explicitly.
 
-Every bundled plugin is a real Go package under `internal/plugins/native/`
-(three — `logtail`, `webcfg`, `wpa-sec` — live in `internal/web` and
-`internal/wpasec` instead; see their rows below for why), registered with
-`internal/pluginmanager.Manager` from `cmd/pwnagotchi/main.go`'s
-`registerNativePlugins`:
+## Built-In Plugins
 
-- **Lifecycle**: `Manager.LoadAll` calls each registered plugin's `OnLoad`
-  in dependency order if its `config['main']['plugins'][name].enabled` is
-  true, then auto-delivers `loaded` then `config_changed` events —
-  mirroring Python's `plugins.load()` firing the same two events in the
-  same order. `OnUnload` runs on a runtime disable (web UI toggle) or
-  daemon shutdown.
-- **Event dispatch**: each loaded plugin gets its own bounded, serial event
-  queue and goroutine (mirrors Python's one-`PluginEventQueue`-thread-per-
-  plugin model). A panic inside a plugin's `HandleEvent` is recovered and
-  counted (`Manager.List()`'s `Status.Panics`), never taking down another
-  plugin or the daemon — verified by real, injected-panic tests in
-  `internal/pluginmanager/manager_test.go`, not just claimed by design.
-- **Capabilities**: `OnLoad` receives a typed `Capabilities` struct (narrow
-  interfaces for Agent/View/Bettercap/Grid/State/Exec/HTTPClient/Clock/
-  GPIO/I2C/SPI/Web/System/Log) instead of live `agent`/`view`/`display`
-  Python objects — there is no proxy-stub/RPC-marshaling boundary at all
-  anymore, because the plugin and the daemon are the same process. A
-  plugin that calls `Capabilities.Agent.Config()`/`.View()` gets the real
-  thing directly; the entire class of "argument becomes an inert stub
-  across a process boundary" bugs this document used to track (see
-  `docs/known-differences.md`'s old `wpa-sec`/bridge entries) cannot occur
-  in the current architecture.
-- **Webhooks**: `WebhookHandler.OnWebhook`/`RouteRegistrar.RegisterRoutes`
-  receive a real `*http.Request` on the real `internal/web` mux, in-process
-  — no whole-body-capture RPC step, so a plugin can stream an unbounded
-  response (`internal/web/logtail.go`'s `/plugins/logtail/stream` does
-  exactly this via a real `http.Flusher`).
-- **Third-party/out-of-process plugins**: a separate system,
-  `internal/pluginrpc`, exists for plugins distributed as separately
-  compiled Go executables (versioned manifest, checksum verification,
-  bounded newline-delimited-JSON RPC, crash/hang detection) — see
-  `docs/plugin-development.md`'s "Registering your plugin" section.
-  `pwnagotchi plugins install <name>` for a legacy Python `.py` plugin
-  fails with a clear migration message (`internal/plugins/cmd.go`'s
-  `legacyPythonPluginMessage`) rather than silently doing nothing.
+| Plugin | Default | Go location | Runtime notes |
+|---|---:|---|---|
+| `auto-tune` | on | `internal/plugins/native/auto_tune` | Agent channel/history access, presets, persisted config, CSRF-protected webhook |
+| `auto_backup` | on | `internal/plugins/native/auto_backup` | Runs configured backup tools and exposes a webhook |
+| `auto-update` | on (check only) | `internal/plugins/native/auto_update` | Privileged bettercap/pwngrid install is opt-in, bounded, checksum-required, and rollback-aware; daemon self-update is report-only |
+| `bt-tether` | off | `internal/plugins/native/bt_tether` | Uses `bluetoothctl`, D-Bus, `ip`, and DHCP tools; interactive passkey-agent flows remain limited |
+| `cache` | on | `internal/plugins/native/cache` | Writes AP cache data under the handshake directory |
+| `example` | - | `internal/plugins/native/example` | Reference lifecycle/event/UI implementation |
+| `fix_services` | on | `internal/plugins/native/fix_services` | Checks/restarts services and modules using real host actions |
+| `gpio_buttons` | off | `internal/plugins/native/gpio_buttons` | Linux sysfs GPIO; external pull bias may be required |
+| `gps` | off | `internal/plugins/native/gps` | Serial or GPSD input and per-handshake `.gps.json` files |
+| `grid` | on | `internal/plugins/native/grid` | Reports captures, updates session data, checks inbox, emits `unread_inbox`, updates view |
+| `logtail` | off | `internal/web/logtail.go` | Native streaming log endpoint |
+| `memtemp` | off | `internal/plugins/native/memtemp` | CPU/memory/temperature UI values |
+| `ohcapi` | off | `internal/plugins/native/ohcapi` | OnlineHashCrack upload and status webhook |
+| `pisugarx` | off | `internal/plugins/native/pisugarx` | PiSugar I2C and shutdown actions; requires `/dev/i2c-1` |
+| `pwncrack` | off | `internal/plugins/native/pwncrack` | Hash upload workflow |
+| `pwnstore_ui` | on | `internal/plugins/native/pwnstore_ui` | Store browser and structured config editing; legacy Python-store install/uninstall is not supported |
+| `session-stats` | off | `internal/plugins/native/session_stats` | Session aggregation, persistence, and webhook |
+| `switcher` | - | `internal/plugins/native/switcher` | User-defined event tasks and optional reboot; command strings intentionally invoke a shell |
+| `ups_lite` | off | `internal/plugins/native/ups_lite` | CW2015 I2C plus GPIO charge state; requires I2C and appropriate GPIO wiring |
+| `webcfg` | on | `internal/web/webcfg.go` | Runtime config editor with atomic TOML writes |
+| `webgpsmap` | off | `internal/plugins/native/webgpsmap` | Map, aggregate data, and offline map download through generic webhook subpaths |
+| `wigle` | off | `internal/plugins/native/wigle` | Pure-Go PCAP parsing, GPS metadata, WiGLE upload |
+| `wittypi` | - | `internal/plugins/native/wittypi` | Witty Pi I2C RTC/power scheduling |
+| `wpa-sec` | off | `internal/wpasec/wpasec.go` | WPA-SEC upload and one-time legacy state migration |
 
-## Event dispatch (daemon call sites, native plugin side)
+Every entry has focused Go tests. Hardware and external-service branches use
+fakes in the default suite and require separate device validation.
 
-Every event a native plugin's `HandleEvent(event string, args []interface{})`
-can receive, and where the daemon fires it. Names match Python's `on_<event>`
-minus the `on_` prefix (see `docs/plugin-development.md`).
+## Runtime Guarantees
 
-| Event | Fired from | Args |
-|---|---|---|
-| `loaded` | `pluginmanager.Manager.LoadAll`, automatically right after `OnLoad` succeeds | none |
-| `config_changed` | `pluginmanager.Manager.LoadAll`, automatically right after `loaded` | full `config.Map` |
-| `ready` | `internal/automata` | `agent` |
-| `grateful` / `lonely` / `bored` / `sad` / `angry` / `excited` / `rebooting` | `internal/automata` | `agent` |
-| `wait` / `sleep` | `internal/automata` | `agent, t` |
-| `epoch` | `internal/automata` | `agent, epoch, epoch_data` |
-| `wifi_update` | `internal/agent/recon.go` | `agent, []agent.AP` |
-| `unfiltered_ap_list` | `internal/agent/recon.go` | `agent, []interface{}` |
-| `bcap_<tag>` (dynamic) | `internal/agent/events.go` | `agent, map[string]interface{}` (raw bettercap event) |
-| `handshake` | `internal/agent/events.go` | `agent, filename, ap, sta` (ap/sta sometimes plain BSSID strings — see `docs/plugin-development.md`) |
-| `association` | `internal/agent/recon.go` | `agent, ap` |
-| `deauthentication` | `internal/agent/recon.go` | `agent, ap, sta` |
-| `channel_hop` | `internal/agent/recon.go` | `agent, channel` |
-| `internet_available` | `internal/cli/run.go` | `agent` |
-| `peer_detected` / `peer_lost` | `internal/mesh/advertiser.go` | `agent, peer` |
-| `ui_setup` | not a separate event — a native plugin adds its UI elements directly inside `OnLoad` (see `docs/plugin-development.md`) | n/a |
-| `ui_update` | `internal/ui/view/view.go` | none (read `Capabilities.View`) |
-| `display_setup` | `internal/ui/display/display.go` | n/a |
-| webhook | HTTP request to `/plugins/<name>/<subpath>` | real `*http.Request`, in-process |
+- Plugins load only when `main.plugins.<name>.enabled = true`.
+- Each event handler has a serial queue of 64 events.
+- Panics are recovered and exposed in manager status.
+- A full queue drops only that plugin's newest event.
+- Load/unload/toggle operations are serialized per plugin.
+- A failed load or crashed remote process is reported without stopping the
+  daemon.
+- Generic state-changing webhook requests require the daemon CSRF token.
 
-`switcher`'s Go port self-registers for a large subset of this table based
-on its own `tasks` config, the same as Python's dynamic `setattr` mechanism
-— see its row below.
+Built-ins run inside the daemon and are not isolated from daemon memory. A bug
+outside a recovered event callback, such as a background goroutine panic, can
+still terminate the process.
 
-## Bundled plugins (`internal/plugins/native/*` unless noted)
+## Hardware Caveats
 
-"Verification" is the plugin's own Go test file — every plugin below has
-one; behavior is proven by real Go tests against injected fakes
-(`CommandRunner`/`HTTPClient`/`Clock`/GPIO/I2C), not by re-running the
-original Python.
+I2C plugins use the real Linux `/dev/i2c-<bus>` backend. The image must enable
+I2C and the service account must be allowed to open the device.
 
-| Plugin | Package | `enabled` default | Capabilities implemented | Verification |
-|---|---|---|---|---|
-| **auto-tune** | `autotune` | `true` | Loader, EventHandler, WebhookHandler | `auto_tune_test.go` (16 tests) |
-| **auto_backup** | `autobackup` | `true` | Loader, EventHandler, WebhookHandler | `auto_backup_test.go` (13 tests) |
-| **auto-update** | `autoupdate` | `true` | Loader, Unloader, EventHandler | `auto_update_test.go` (9 tests) |
-| **bt-tether** | `bttether` | `false` | Loader, Unloader, EventHandler, WebhookHandler | `bt_tether_test.go` (21 tests) — real `bluetoothctl` argv discovery/pairing, a single targeted `dbus-send` NAP call, real `ip`/`dhclient` bring-up parsing; no live scan-progress streaming or interactive pairing-agent passkey confirmation (`Capabilities.Exec` is request/response, not a persistent session) |
-| **cache** | `cache` | `true` | Loader, Unloader, EventHandler | `cache_test.go` (13 tests) — writes real `.apcache` files under `<handshakes>/cache/` |
-| **example** | `example` | n/a (reference only, no `defaults.toml` section) | every optional interface, minimal logic | `example_test.go` (8 tests) — the "what does a plugin skeleton look like" reference cited by `docs/plugin-development.md` |
-| **fix_services** | `fixservices` | `true` | Loader, EventHandler | `fix_services_test.go` (16 tests) |
-| **gpio_buttons** | `gpiobuttons` | `false` | Loader, Unloader | `gpio_buttons_test.go` (8 tests) — real GPIO line capability, injectable in tests; `Capabilities.GPIO` is unbacked by a real Linux implementation on non-Pi hardware (see `docs/known-differences.md`'s bus-abstraction note) |
-| **gps** | `gps` | `false` | Loader, Unloader, EventHandler | `gps_test.go` (10 tests) — writes `.gps.json` alongside each handshake; see `wigle`'s row for a disclosed cross-plugin gap (Accuracy/Updated fields) |
-| **grid** | `gridplugin` (import alias; package `grid`) | `true` | Loader, EventHandler, WebhookHandler | `grid_test.go` (11 tests) — constructor-injected real `*grid.Client` + a `grid.SessionSummary` closure reading `agent.LastSession`, a documented divergence from the generic `Capabilities.GridCapability` shape (see the package's own doc comment) |
-| **memtemp** | `memtemp` | `false` | Loader, Unloader, EventHandler | `memtemp_test.go` (10 tests) |
-| **ohcapi** | `ohcapi` | `false` | Loader, EventHandler, WebhookHandler | `ohcapi_test.go` (12 tests) |
-| **pisugarx** | `pisugarx` | `false` | Loader, Unloader, EventHandler, WebhookHandler | `pisugarx_test.go` (19 tests) — real I2C capability, unbacked without real hardware (same bus-abstraction caveat as `gpio_buttons`) |
-| **pwncrack** | `pwncrack` | `false` | Loader, Unloader, EventHandler | `pwncrack_test.go` (6 tests) |
-| **pwnstore_ui** | `pwnstoreui` | `true` | Loader, WebhookHandler | `pwnstore_ui_test.go` (12 tests) — real embedded store UI, real store-JSON fetch, real `config.toml` rewrite, real backgrounded `systemctl restart`; install/uninstall of a third-party store entry honestly returns `{"success": false}` rather than fabricating success (there is no bundled Python `pwnstore` installer to shell out to anymore) |
-| **session-stats** | `sessionstats` | `false` | Loader, Unloader, EventHandler, WebhookHandler | `session_stats_test.go` (17 tests) |
-| **switcher** | `switcher` | *(no `defaults.toml` section — user-configured only)* | Loader, EventHandler | `switcher_test.go` (6 tests) — real argv process execution (`Capabilities.Exec`) and real reboot (`Capabilities.System`) for its `commands`/task-scheduling behavior; `commands` is the one config field in this whole port that is deliberately treated as a shell program string, not argv (documented exception — see `docs/plugin-development.md`) |
-| **ups_lite** | `upslite` | `false` | Loader, Unloader, EventHandler | `ups_lite_test.go` (9 tests) — real I2C capability, same hardware caveat as `pisugarx` |
-| **webgpsmap** | `webgpsmap` | `false` | Loader, EventHandler, WebhookHandler, RouteRegistrar | `webgpsmap_test.go` (15 tests) |
-| **wigle** | `wigle` | `false` | Loader, Unloader, EventHandler, WebhookHandler | `wigle_test.go` (17 tests) — uses `internal/wifiparse` (pure-Go PCAP/802.11 parsing) + `cache.ReadAPCache`; disclosed cross-plugin gap: `gps`'s `.gps.json` only carries Latitude/Longitude/Altitude today, not Accuracy/Updated, so `wigle` defaults missing Accuracy to 0 and missing/unparseable Updated to file mtime — a disclosed, non-security-relevant improvement over Python's uncaught `KeyError` on the same missing fields |
-| **wittypi** | `wittypi` | *(no `defaults.toml` section — user-configured only)* | Loader, Unloader, EventHandler | `wittypi_test.go` (8 tests) — same I2C hardware caveat as `pisugarx`/`ups_lite` |
+GPIO plugins use `/sys/class/gpio`. The backend can set input/output, read,
+write, and wait for falling edges, but it cannot configure pull-up or pull-down
+bias. Use the peripheral's built-in resistor or add the required hardware
+resistor.
 
-## Plugins reimplemented outside `internal/plugins/native` (structural reasons, not bridge limitations)
+SPI is not available. Physical display drivers are also not implemented, so
+plugin UI state is visible in the web/headless rendering path but not on a real
+e-ink/OLED/LCD panel with this Go build.
 
-These three were pulled out of the generic bridge path early because their
-own features needed something the bridge specifically couldn't do; now
-that the bridge is gone entirely, they remain separate because their real
-implementation genuinely lives closer to the subsystem they extend, not
-because of any remaining limitation:
+## Third-Party Plugins
 
-| Plugin | Where | `enabled` default | Verification | Why it's separate |
-|---|---|---|---|---|
-| **logtail** | `internal/web/logtail.go` | `false` | `internal/web/server_test.go` (`TestLogtailIsNativeGoNotBridge` and related) | Streaming tail-then-follow webhook (`/plugins/logtail/stream`) needs a real `http.Flusher` on the live request/response, which only `internal/web` itself can wire directly |
-| **webcfg** | `internal/web/webcfg.go` | `true` | `internal/web/webcfg_test.go` (6 tests) | Its "merge and save without a restart" feature needs to mutate the *same* shared `config.Map` reference the rest of the daemon reads — `cmd/pwnagotchi/main.go` hands `agent.New`/`view.New`/`web.New` that one shared map at startup, so `internal/web.replaceMapContents` mutating it in place is immediately visible everywhere, with no separate propagate-to-N-copies step |
-| **wpa-sec** | `internal/wpasec/wpasec.go` | `false` | `internal/wpasec/wpasec_test.go` (8 tests) | Wired directly into the same `EventEmitter` chain `agent`/`automata`/`mesh` already use, where `*agent.Agent.Config()`/`.View()` are real, non-stubbed methods; uses a JSON-persisted map instead of sqlite3 (no cgo/SQL-driver dependency for one `(path, status)` table), with a one-time `migrateLegacyDB()` import of any real prior Python install's `.wpa_sec_db` via the pure-Go, no-cgo `modernc.org/sqlite` driver — see `docs/known-differences.md` |
+Installed plugins are separate checksum-verified executables under:
 
-## Custom plugin loading
+```text
+/etc/pwnagotchi/plugins/<name>/manifest.toml
+/etc/pwnagotchi/plugins/<name>/<name>
+```
 
-There is no bundled-vs-custom distinction for native plugins the way
-Python had `load_from_path`/`load_from_file` — a native Go plugin must be
-compiled into the daemon (see `docs/plugin-development.md`'s "Registering
-your plugin" section) or distributed as a separately compiled, manifest-
-described executable through `internal/pluginrpc`. There is no equivalent
-of dropping a bare `.py` file into a custom-plugins directory and having it
-picked up at next startup.
+They receive the same event vocabulary but a smaller RPC surface:
+
+- `Log`
+- `Agent`
+- `View`
+- `Exec`
+- `Clock`
+
+They cannot register plugin webhooks, access GPIO/I2C/SPI through RPC, or import
+the daemon's internal packages. They must import
+`github.com/jayofelony/pwnagotchi/pkg/plugin`.
+
+Checksums detect mismatch or corruption but are not signatures. Third-party
+processes are not sandboxed and normally inherit root privileges from the
+systemd service. See [Plugin development](plugin-development.md).
+
+## Removed Compatibility
+
+The following Python mechanisms do not exist:
+
+- loading a bare `.py` file
+- `main.custom_plugins` discovery
+- Python package dependencies
+- Flask/Jinja plugin execution
+- the former Python subprocess bridge
+
+`main.custom_plugins` remains only so the CLI can identify a legacy file and
+give a migration error. It is never executed.

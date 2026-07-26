@@ -59,7 +59,6 @@ type Plugin struct {
 	device      string
 	speed       string
 	lineSpacing int
-	pos         pos
 
 	agent pluginmanager.AgentCapability
 	view  pluginmanager.ViewCapability

@@ -9,28 +9,6 @@
 //
 // Original Python author: Sniffleupagus (see auto-tune.py's own
 // __author__ field, left untouched). This Go port is by raf181.
-//
-// Two real, confirmed capability gaps in the current
-// pluginmanager.AgentCapability surface (not filled in by this package,
-// per this fork's scope restriction — flagged in the parent
-// conversation/PR description instead of edited here):
-//  1. No equivalent of *agent.Agent.SupportedChannels() (Python:
-//     agent._supported_channels / agent._allowed_channels) is exposed on
-//     AgentCapability, so this port's on_epoch channel-repopulation
-//     falls back to an injectable SupportedChannelsFunc that defaults to
-//     returning nil (documented, not silently faked) instead of reading
-//     the real supported-channel list.
-//  2. No equivalent of Python's `agent._history = {}` (resetting the
-//     shouldInteract max_interactions bookkeeping) is exposed either, so
-//     on_ready's reset_history option only re-runs the two real
-//     `agent.Run("wifi.recon clear")` / `agent.Run("wifi.clear")`
-//     bettercap commands, not the in-process history reset.
-//
-// Both are narrow, additive capability proposals
-// (`AgentCapability.SupportedChannels() []int` and something like
-// `AgentCapability.ResetHistory()`), not implemented here to avoid
-// touching internal/pluginmanager/capabilities.go from a scoped-off
-// worker.
 package autotune
 
 import (
@@ -53,8 +31,7 @@ type realClock struct{}
 
 func (realClock) Now() time.Time { return time.Now() }
 
-// SupportedChannelsFunc is the injectable substitute for the missing
-// AgentCapability.SupportedChannels() capability — see package doc.
+// SupportedChannelsFunc is injectable for deterministic tests.
 type SupportedChannelsFunc func() []int
 
 // Options mirrors the plugin's own self.options defaults.
@@ -92,10 +69,11 @@ type Plugin struct {
 	agent   pluginmanager.AgentCapability
 	fullCfg config.Map // captured from "config_changed"; config.Map is a shared reference (see webcfg.go's doc comment), so mutating fullCfg["personality"]["channels"] here is visible daemon-wide with no extra plumbing.
 
-	supportedChannels SupportedChannelsFunc // see package doc gap #1
+	supportedChannels SupportedChannelsFunc
 	clock             clock
 
 	presetsDir string
+	configPath string
 
 	loops             int
 	histogram         map[int]int // channel -> AP-seen count, summed across epochs
@@ -112,6 +90,7 @@ func New() *Plugin {
 		opts:       defaultOptions(),
 		clock:      realClock{},
 		presetsDir: filepath.Join(home, "auto-tune-presets"),
+		configPath: "/etc/pwnagotchi/config.toml",
 		histogram:  map[int]int{},
 		chistos:    map[string]map[int]int{"_all_actions": {-1: 0}},
 		knownAPs:   map[string]*apRecord{},
@@ -138,6 +117,9 @@ func (p *Plugin) OnLoad(caps pluginmanager.Capabilities) error {
 	defer p.mu.Unlock()
 	p.log = caps.Log
 	p.agent = caps.Agent
+	if caps.Agent != nil {
+		p.supportedChannels = caps.Agent.SupportedChannels
+	}
 	p.opts = parseOptions(caps.Config)
 
 	if err := os.MkdirAll(p.presetsDir, 0o755); err != nil {
@@ -186,9 +168,8 @@ func (p *Plugin) onConfigChanged(args []interface{}) {
 	p.mu.Unlock()
 }
 
-// onReady ports on_ready: reset_history clears bettercap's own recon
-// state via two real Run() commands. See package doc gap #2 for why the
-// in-process `agent._history` reset itself isn't ported.
+// onReady ports on_ready: reset_history clears both in-process interaction
+// history and bettercap's recon state.
 func (p *Plugin) onReady() {
 	p.mu.Lock()
 	reset := p.opts.ResetHistory
@@ -197,6 +178,7 @@ func (p *Plugin) onReady() {
 	if !reset || agent == nil {
 		return
 	}
+	agent.ResetHistory()
 	_, _ = agent.Run("wifi.recon clear", false)
 	_, _ = agent.Run("wifi.clear", false)
 }
@@ -223,9 +205,7 @@ func (p *Plugin) onWifiUpdate(args []interface{}) {
 	p.activeChannels = active
 }
 
-// onEpoch ports on_epoch's channel-selection logic exactly, modulo the
-// documented SupportedChannelsFunc substitution for
-// agent._allowed_channels/_supported_channels (package doc gap #1).
+// onEpoch ports on_epoch's channel-selection logic.
 func (p *Plugin) onEpoch() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -239,7 +219,7 @@ func (p *Plugin) onEpoch() {
 		case p.supportedChannels != nil:
 			p.unscannedChannels = append([]int(nil), p.supportedChannels()...)
 		default:
-			p.logf("auto-tune: no restrict_channels configured and no SupportedChannelsFunc wired; cannot repopulate the unscanned-channel pool (see package doc gap #1)")
+			p.logf("auto-tune: no restrict_channels or supported channels available; cannot repopulate the unscanned-channel pool")
 		}
 	}
 	for i := 0; i < n && len(p.unscannedChannels) > 0; i++ {

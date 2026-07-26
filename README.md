@@ -1,104 +1,158 @@
-# Pwnagotchi (Go)
+# Pwnagotchi Go
 
-This is a Go implementation of [Pwnagotchi](https://pwnagotchi.org/) — the
-daemon, web UI, plugin system, and all 23 bundled plugins are native Go,
-built as a single static binary with no Python runtime dependency.
+This repository contains a Go implementation of Pwnagotchi for 64-bit
+Raspberry Pi systems. The daemon, web UI, and 23 original bundled plugins
+plus the `example` plugin are implemented in Go. A normal build produces one
+static daemon binary and does not require a Python runtime.
 
-[Pwnagotchi](https://pwnagotchi.org/) is a Raspberry Pi leveraging
-[bettercap](https://www.bettercap.org/) that survives from its
-surrounding Wi-Fi environment to maximize the crackable WPA key material
-it captures (either passively, or by performing authentication and
-association attacks). This material is collected as PCAP files containing
-any form of handshake supported by [hashcat](https://hashcat.net/hashcat/),
-including [PMKIDs](https://www.evilsocket.net/2019/02/13/Pwning-WiFi-networks-with-bettercap-and-the-PMKID-client-less-attack/),
-full and half WPA handshakes.
+Pwnagotchi uses bettercap to collect WPA handshake material from nearby Wi-Fi
+networks. Only run it on networks and radio spectrum you are authorized to
+test.
 
-Multiple units within close physical proximity can "talk" to each other,
-advertising their presence to each other by broadcasting custom
-information elements using a parasite protocol
-[@evilsocket](https://x.com/evilsocket) built on top of the existing
-dot11 standard.
+## Current Status
 
-## Layout
+- Core agent, automata, bettercap, mesh, pwngrid, web UI, configuration, and
+  plugin runtime are native Go.
+- The manager has 24 built-in entries: 23 bundled plugins and `example`.
+- Third-party plugins are separately compiled Go executables with a versioned
+  manifest, target validation, SHA-256 verification, bounded RPC, heartbeat
+  monitoring, and per-process crash isolation.
+- Linux I2C and legacy sysfs GPIO backends are wired for hardware plugins.
+- `DummyDisplay` and headless rendering work. Physical e-ink/OLED/LCD drivers
+  are registered but their hardware operations remain unsupported in Go.
+- SPI is not implemented or wired. GPIO input pull bias is not configured by
+  the sysfs backend, so button circuits need an appropriate hardware pull-up
+  or pull-down.
+- Existing Python `.py` plugins are not loaded. They must be ported to Go.
+- The bundled auto-update plugin checks releases by default but does not
+  install them unless `main.plugins.auto-update.install = true`. It never
+  replaces the running Pwnagotchi daemon in-process; deploy daemon/image
+  updates explicitly.
 
-- `cmd/pwnagotchi` — CLI entry point.
-- `internal/config` — TOML/YAML config loading, merging, defaults.
-- `internal/cli` — argument parsing.
-- `internal/identity` — RSA identity keypair management.
-- `internal/automata` — state machine.
-- `internal/epoch` — epoch/session bookkeeping.
-- `internal/logging` — logging setup.
-- `internal/voice` — personality voice lines (translated via embedded
-  gettext `.mo` catalogs; editable `.po` sources live in `locale-src/`).
-- `internal/bettercap` — bettercap REST API client.
-- `internal/grid` — pwngrid API client.
-- `internal/mesh` — peer discovery.
-- `internal/agent` — main orchestration loop.
-- `internal/ui` — display state/rendering; `internal/ui/hw` — display
-  drivers; `internal/web` — web UI.
-- `internal/pluginmanager` — the native plugin manager every bundled
-  plugin registers with: lifecycle, event dispatch, typed capabilities,
-  panic isolation.
-- `internal/plugins/native/` — all 23 bundled plugins, each its own
-  package (memtemp, cache, switcher, wpa-sec, grid, wigle, bt-tether,
-  session-stats, auto-tune, and the rest).
-- `internal/pluginrpc` — the Go-only third-party plugin distribution
-  system: versioned manifests, checksum-verified separately-compiled Go
-  executables, and a bounded RPC protocol — see `docs/plugin-development.md`.
-- `internal/wifiparse` — pure-Go PCAP/802.11 field extraction (BSSID,
-  ESSID, encryption, channel, RSSI) for the `grid`/`wigle` plugins.
-- `docs/` — `architecture.md` (how the pieces fit together),
-  `migration-ledger.md` (evidence-based porting log), `plugin-development.md`
-  (native plugin API), `feature-matrix.md`/`plugin-compatibility-matrix.md`/
-  `known-differences.md` (per-subsystem status and Python↔Go divergences).
-- `deploy/` — Raspberry Pi image build pipeline (pi-gen stages, systemd
-  units, kernel/Nexmon pinning).
-- `tests/`, `testdata/` — Go tests and fixtures.
+See [Documentation](docs/README.md) for the current status, known differences,
+plugin guides, and historical migration records.
 
-## Building
+## Security First
 
-```sh
-go build ./...
-go vet ./...
-go test ./...
-go test -race ./...
+The web UI can reboot, shut down, reconfigure, and manage plugins. The packaged
+defaults enable Basic authentication, but the initial web username and password
+are both placeholders. Set real credentials before exposing port `8080`.
 
-# Cross-compile for the Raspberry Pi target:
-CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -o pwnagotchi-go ./cmd/pwnagotchi
+```toml
+[ui.web]
+enabled = true
+address = "0.0.0.0"
+auth = true
+username = "admin"
+password = "replace-with-a-long-unique-password"
 ```
 
-Or via the Makefile: `make build`, `make fmt`, `make vet`, `make test`, `make race`.
+Also replace any image-default SSH password, preferably install an SSH key and
+disable password authentication. Do not expose bettercap (`8081`), pwngrid, or
+the Pwnagotchi web UI directly to the public internet.
 
-## Writing a plugin
+## Build
 
-See [`docs/plugin-development.md`](docs/plugin-development.md) for the
-native Go plugin API (bundled/compiled-in) and
-[`internal/pluginrpc`](internal/pluginrpc) for the third-party
-distribution system (versioned manifests + checksum-verified executables).
-Existing Python plugins are not compatible with this daemon — the Python
-plugin bridge has been fully removed.
+Go 1.25 or newer is required by `go.mod`.
 
-## Status and known gaps
+```sh
+go test ./...
+go vet ./...
+go test -race ./...
+go build ./...
+```
 
-See [`docs/migration-ledger.md`](docs/migration-ledger.md) for the
-authoritative, evidence-based record of what's ported, what's
-intentionally deferred, and why. Two items are deliberately out of scope
-as of this writing (by explicit request, not oversight): the ~94 physical
-display driver ports and the SPI/I2C/GPIO/PWM hardware bus abstraction
-work. The `pwnagotchi/` Python source tree at the repository root is kept
-only for that reason — it is not run, imported, or required by this Go
-daemon in any way.
+Cross-compile the daemon for the Pi Zero 2 W image target:
 
-## Links
+```sh
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 \
+  go build -trimpath -o pwnagotchi-go ./cmd/pwnagotchi
+```
 
-| &nbsp;    | Official Links                                           |
-|-----------|----------------------------------------------------------|
-| Website   | [pwnagotchi.org](https://pwnagotchi.org/)                  |
-| Chat      | [discord](https://discord.gg/PGgnzFbz4M) |
-| Subreddit | [r/pwnagotchi](https://www.reddit.com/r/pwnagotchi/)     |
+Equivalent Make targets are available:
+
+```sh
+make fmt
+make vet
+make test
+make race
+make build
+```
+
+## Run
+
+The daemon reads:
+
+- `/etc/pwnagotchi/default.toml`
+- `/etc/pwnagotchi/config.toml`
+- configured `conf.d` drop-ins
+
+Useful non-destructive commands:
+
+```sh
+pwnagotchi --help
+pwnagotchi --version
+pwnagotchi --print-config
+pwnagotchi plugins --help
+pwnagotchi plugins list
+pwnagotchi plugins doctor --all --no-hardware
+```
+
+`pwnagotchi-go` is the installed binary name. Updated image builds also create
+`/usr/bin/pwnagotchi` as a symlink to it.
+
+## Plugins
+
+There are two supported plugin paths:
+
+1. Bundled plugins live in this module, implement
+   `internal/pluginmanager` interfaces, and are registered in
+   `cmd/pwnagotchi/main.go`.
+2. Third-party plugins import the public
+   `github.com/jayofelony/pwnagotchi/pkg/plugin` SDK and are installed from a
+   configured repository index as checksum-verified executables.
+
+Start with:
+
+- [Plugin development](docs/plugin-development.md)
+- [Plugin repository format](docs/plugin-repository.md)
+- [Plugin compatibility](docs/plugin-compatibility-matrix.md)
+
+The configured repository URL is:
+
+```toml
+[main]
+plugin_repository_index = "https://plugins.example.net/linux-arm64/index.json"
+```
+
+It is empty by default because this project does not ship a trusted public
+third-party repository.
+
+## Repository Layout
+
+| Path | Purpose |
+|---|---|
+| `cmd/pwnagotchi` | CLI and daemon composition root |
+| `internal/agent` | Bettercap orchestration and interaction history |
+| `internal/config` | Defaults, TOML/YAML loading, merging, and atomic writes |
+| `internal/pluginmanager` | Built-in plugin lifecycle and event queues |
+| `internal/pluginrpc` | Third-party manifest, repository, host, and RPC protocol |
+| `pkg/plugin` | Public third-party plugin SDK |
+| `internal/plugins/native` | Built-in plugin packages |
+| `internal/ui`, `internal/web` | Rendering, views, and HTTP UI |
+| `internal/pluginhost` | Runtime capability adapters, including Linux GPIO/I2C |
+| `deploy` | Pi image pipeline, services, launchers, and hardware setup |
+| `docs` | Current guides and historical migration evidence |
+
+## Raspberry Pi
+
+Read [deploy/README.md](deploy/README.md) before building or updating an image.
+Monitor mode and frame injection depend on a compatible USB adapter or a
+kernel/firmware combination supported by Nexmon. A stock Pi Zero 2 W onboard
+radio does not provide the required monitor mode.
 
 ## License
 
-`pwnagotchi` created by [@evilsocket](https://x.com/evilsocket) and
-updated by [us](https://github.com/jayofelony/pwnagotchi/graphs/contributors).
-It is released under the GPL3 license.
+Pwnagotchi was created by
+[@evilsocket](https://github.com/evilsocket) and is maintained by the project
+contributors. This repository is licensed under GPL-3.0; see [LICENSE.md](LICENSE.md).

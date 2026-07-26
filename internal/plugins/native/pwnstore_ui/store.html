@@ -41,7 +41,7 @@
         .message { position: fixed; top: 20px; right: 20px; padding: 15px 20px; border: 2px solid #0f0; background: #000; color: #0f0; font-size: 12px; z-index: 6000; max-width: 300px; animation: slideIn 0.3s; }
         @keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         .footer { text-align: center; padding: 20px; margin-top: 30px; border-top: 2px solid #0f0; font-size: 11px; }
-        
+
         .config-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.9); display: flex; align-items: center; justify-content: center; z-index: 8000; padding: 20px; }
         .config-modal { background: #000; border: 3px solid #0f0; padding: 25px; max-width: 500px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 0 30px #0f0; }
         .config-header h2 { font-size: 20px; color: #0f0; margin-bottom: 10px; text-align: center; }
@@ -61,7 +61,7 @@
         <h1>🛒 PwnStore</h1>
         <p style="font-size: 12px;">Plugin Gallery & Manager</p>
         <div style="display: flex; justify-content: center; gap: 10px;">
-            <a href="https://buymeacoffee.com/wpa2" target="_blank" class="donate-btn">☕ Support Dev</a>
+            <a href="https://buymeacoffee.com/wpa2" target="_blank" rel="noopener noreferrer" class="donate-btn">☕ Support Dev</a>
             <button class="donate-btn" style="background: #f00;" onclick="restartService()">🔄 Restart Service</button>
         </div>
     </div>
@@ -79,7 +79,7 @@
     <div class="stats"><span id="pluginCount">Loading plugins...</span></div>
     <div id="pluginsContainer" class="plugins-grid"></div>
 
-    <div class="footer">Built by <strong>WPA2</strong> • v3.2.6 • <a href="https://github.com/wpa-2/pwnagotchi-store" style="color: #0f0;">GitHub</a></div>
+    <div class="footer">Built by <strong>WPA2</strong> • v3.2.6 • <a href="https://github.com/wpa-2/pwnagotchi-store" target="_blank" rel="noopener noreferrer" style="color: #0f0;">GitHub</a></div>
 
     <script>
         let allPlugins = [];
@@ -111,38 +111,97 @@
 
         async function loadData() {
             try {
-                allPlugins = await apiRequest('/plugins/pwnstore_ui/api/plugins');
-                installedPlugins = await apiRequest('/plugins/pwnstore_ui/api/installed');
+                const plugins = await apiRequest('/plugins/pwnstore_ui/api/plugins');
+                const installed = await apiRequest('/plugins/pwnstore_ui/api/installed');
+                allPlugins = Array.isArray(plugins)
+                    ? plugins.slice(0, 1000).map(normalizePlugin).filter(Boolean)
+                    : [];
+                installedPlugins = Array.isArray(installed)
+                    ? installed.filter(name => typeof name === 'string')
+                    : [];
                 renderPlugins();
             } catch (e) { showMessage('Load failed', 'error'); }
         }
 
+        function stringValue(value, maxLength) {
+            return typeof value === 'string' ? value.slice(0, maxLength) : '';
+        }
+
+        function normalizePlugin(value) {
+            if (!value || typeof value !== 'object') return null;
+            const name = stringValue(value.name, 64).trim();
+            if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(name)) return null;
+            return {
+                name,
+                author: stringValue(value.author, 200),
+                category: stringValue(value.category, 64),
+                description: stringValue(value.description, 4000),
+            };
+        }
+
         function renderPlugins() {
             const container = document.getElementById('pluginsContainer');
-            let filtered = allPlugins.filter(p => {
+            const filtered = allPlugins.filter(p => {
                 const cat = currentCategory === 'all' || p.category === currentCategory;
                 const search = !searchTerm || p.name.toLowerCase().includes(searchTerm) || p.description.toLowerCase().includes(searchTerm);
                 return cat && search;
             });
             document.getElementById('pluginCount').textContent = `Showing ${filtered.length} plugins`;
-            container.innerHTML = filtered.map(p => {
+            container.replaceChildren();
+            filtered.forEach(p => {
                 const isInst = installedPlugins.includes(p.name);
-                return `
-                    <div class="plugin-card" data-name="${p.name}">
-                        ${isInst ? '<span class="status-badge installed">✓ INSTALLED</span>' : ''}
-                        <div class="plugin-header"><div class="plugin-name">${p.name}</div></div>
-                        <div class="plugin-author">by ${p.author}</div>
-                        <div class="plugin-description">${p.description || ''}</div>
-                        <div class="plugin-actions">
-                            ${isInst ? 
-                                `<button class="btn btn-uninstall" onclick="uninstallPlugin('${p.name}')">Uninstall</button>` :
-                                `<button class="btn" onclick="installPlugin('${p.name}')">Install</button>`
-                            }
-                            <button class="btn btn-info" onclick="showInfo('${p.name}')">ℹ️</button>
-                        </div>
-                    </div>
-                `;
-            }).join('');
+                const card = document.createElement('div');
+                card.className = 'plugin-card';
+                card.dataset.name = p.name;
+
+                if (isInst) {
+                    const status = document.createElement('span');
+                    status.className = 'status-badge installed';
+                    status.textContent = '✓ INSTALLED';
+                    card.appendChild(status);
+                }
+
+                const header = document.createElement('div');
+                header.className = 'plugin-header';
+                const pluginName = document.createElement('div');
+                pluginName.className = 'plugin-name';
+                pluginName.textContent = p.name;
+                header.appendChild(pluginName);
+                card.appendChild(header);
+
+                const author = document.createElement('div');
+                author.className = 'plugin-author';
+                author.textContent = `by ${p.author}`;
+                card.appendChild(author);
+
+                const description = document.createElement('div');
+                description.className = 'plugin-description';
+                description.textContent = p.description;
+                card.appendChild(description);
+
+                const actions = document.createElement('div');
+                actions.className = 'plugin-actions';
+                const actionButton = document.createElement('button');
+                actionButton.className = isInst ? 'btn btn-uninstall' : 'btn';
+                actionButton.textContent = isInst ? 'Uninstall' : 'Install';
+                actionButton.addEventListener('click', () => {
+                    if (isInst) {
+                        uninstallPlugin(p.name);
+                    } else {
+                        installPlugin(p.name);
+                    }
+                });
+                actions.appendChild(actionButton);
+
+                const infoButton = document.createElement('button');
+                infoButton.className = 'btn btn-info';
+                infoButton.type = 'button';
+                infoButton.textContent = 'ℹ️';
+                infoButton.addEventListener('click', () => showInfo(p.name));
+                actions.appendChild(infoButton);
+                card.appendChild(actions);
+                container.appendChild(card);
+            });
         }
 
         async function installPlugin(name) {
@@ -171,25 +230,66 @@
 
         function showConfigModal(name, repoUrl) {
             const overlay = document.createElement('div');
-            overlay.className = 'config-overlay'; overlay.id = 'configOverlay';
-            overlay.innerHTML = `
-                <div class="config-modal">
-                    <div class="config-header">
-                        <h2>⚙️ ${name} installed!</h2>
-                        <p>Configuration may be required</p>
-                    </div>
-                    <div style="margin: 20px 0; text-align: center;">
-                        <p style="margin-bottom: 15px;">Edit <code>/etc/pwnagotchi/config.toml</code> to configure this plugin.</p>
-                        ${repoUrl ? `<a href="${repoUrl}" target="_blank" class="config-btn" style="display: inline-block; text-decoration: none;">📖 View Setup Instructions</a>` : ''}
-                        <button type="button" class="config-btn config-btn-secondary" onclick="document.getElementById('configOverlay').remove()">Close</button>
-                    </div>
-                </div>
-            `;
+            overlay.className = 'config-overlay';
+            overlay.id = 'configOverlay';
+
+            const modal = document.createElement('div');
+            modal.className = 'config-modal';
+            const header = document.createElement('div');
+            header.className = 'config-header';
+            const title = document.createElement('h2');
+            title.textContent = `⚙️ ${name} installed!`;
+            const subtitle = document.createElement('p');
+            subtitle.textContent = 'Configuration may be required';
+            header.append(title, subtitle);
+            modal.appendChild(header);
+
+            const content = document.createElement('div');
+            content.style.cssText = 'margin: 20px 0; text-align: center;';
+            const instructions = document.createElement('p');
+            instructions.style.marginBottom = '15px';
+            instructions.append('Edit ');
+            const code = document.createElement('code');
+            code.textContent = '/etc/pwnagotchi/config.toml';
+            instructions.append(code, ' to configure this plugin.');
+            content.appendChild(instructions);
+
+            const safeRepoURL = normalizeHTTPURL(repoUrl);
+            if (safeRepoURL) {
+                const setupLink = document.createElement('a');
+                setupLink.href = safeRepoURL;
+                setupLink.target = '_blank';
+                setupLink.rel = 'noopener noreferrer';
+                setupLink.className = 'config-btn';
+                setupLink.style.cssText = 'display: inline-block; text-decoration: none;';
+                setupLink.textContent = '📖 View Setup Instructions';
+                content.appendChild(setupLink);
+            }
+
+            const closeButton = document.createElement('button');
+            closeButton.type = 'button';
+            closeButton.className = 'config-btn config-btn-secondary';
+            closeButton.textContent = 'Close';
+            closeButton.addEventListener('click', () => overlay.remove());
+            content.appendChild(closeButton);
+            modal.appendChild(content);
+            overlay.appendChild(modal);
             document.body.appendChild(overlay);
+        }
+
+        function normalizeHTTPURL(value) {
+            if (typeof value !== 'string' || !value) return '';
+            try {
+                const parsed = new URL(value);
+                return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.href : '';
+            } catch (_) {
+                return '';
+            }
         }
 
         function showInfo(name) {
             const p = allPlugins.find(x => x.name === name);
+            if (!p) return;
             alert(`Plugin: ${p.name}\\nAuthor: ${p.author}\\n\\n${p.description}`);
         }
 
@@ -214,4 +314,3 @@
     </script>
 </body>
 </html>
-        

@@ -1,109 +1,109 @@
-# Feature Matrix — Python → Go
+# Feature Matrix
 
-Status legend:
-- **Ported** — native Go implementation exists, behavior verified against
-  `python-baseline.md` evidence and/or differential tests, `go test` passes.
-- **Interface-only** — a real Go interface/abstraction exists and is wired into
-  the daemon, but the concrete backend returns an explicit "unsupported on this
-  platform/build" error rather than fake success (e.g. hardware drivers without a
-  Go SPI/I2C implementation yet). Never silently no-ops.
-- **Planned** — analyzed, not yet implemented in Go.
-- **Out of scope** — infra/tooling that is not part of the running daemon (OS
-  image build scripts); documented, not ported.
+This is the current operational status of the Go daemon. Historical
+file-by-file migration evidence is in `migration-ledger.md`.
 
-The Python subprocess/IPC bridge this table used to reference (`internal/pyplugin`,
-"Bridged" status) has been removed entirely — every bundled plugin is now
-**Ported** natively (see `docs/plugin-compatibility-matrix.md`). No status in
-this table means "running as real Python" anymore.
+Status terms:
 
-This table is updated every time a subsystem's Go status changes; it must never
-silently drop a file that appears in `repository-analysis.md`.
+- **Supported**: implemented in Go and covered by the normal test suite.
+- **Hardware-dependent**: implemented, but requires the named Linux device or
+  service.
+- **Partial**: useful implementation exists with a documented gap.
+- **Unsupported**: recognized but deliberately returns an error or is not
+  wired.
 
-## Core (`pwnagotchi/*.py`)
+## Core
 
-| Python file | Go implementation | Tests | Status | Known differences |
-|---|---|---|---|---|
-| `pwnagotchi/__init__.py` | `internal/unit/unit.go` (telemetry), `internal/unit/lifecycle.go` (SetName/Shutdown/Restart/Reboot) | `internal/unit/unit_test.go`, `internal/unit/lifecycle_test.go` | Ported | `Fahrenheit()` intentionally replicates the truncated-Celsius conversion bug; `SetName` never invalidates the name cache after writing the new hostname, matching Python's own stale-cache-until-reboot behavior exactly (see known-differences.md); `Reboot`/`Shutdown` take narrow `RebootView`/`ShutdownView` interfaces instead of one bundled interface, since Python's `reboot()` never calls `on_shutdown` and vice versa; external commands (`hostname`, `service ... restart`, `sync`, `halt`, `shutdown -r now`) run via `os/exec` with explicit argv, never a shell string |
-| `pwnagotchi/_version.go` (n/a, `_version.py`) | `internal/version/version.go` | `internal/version/version_test.go` | Ported | version string kept in lockstep with Python `__version__` |
-| `pwnagotchi/cli.py` | `cmd/pwnagotchi/main.go`, `internal/cli/cli.go` (flag parsing), `checkupdate.go`, `run.go` (do_manual_mode/do_auto_mode), `headlessview.go` | `internal/cli/cli_test.go` | Ported | Earlier in this migration, `--version`/`--help`/`--donate` were verified byte-for-byte against the real Python CLI's stdout and exit code via a dedicated differential test; that test (`tests/compat_cli_test.go`) was deleted along with the rest of the Python-comparison infrastructure once the bridge was removed (see `docs/known-differences.md`'s header note) and has not been replaced with an equivalent non-Python check — `internal/cli/cli_test.go` verifies flag parsing and defaults but no longer diffs against real Python output. A disclosed reduction in verification strength, not a known behavior change. `do_auto_mode`'s "wifi.interface not set" substring-matched recovery branch has no reachable equivalent since `internal/agent`'s bettercap-command methods handle errors internally rather than propagating them (documented, not silently dropped); `cmd/pwnagotchi/main.go` tries the real `internal/ui/display.Display` (backed by `internal/ui/view`) first and falls back to the real log-based `HeadlessView` only if hardware `Initialize()` fails (e.g. no physical display on this machine, or `ui.display.enabled=false`) — both are legitimate operating modes, not stubs |
-| `pwnagotchi/plugins/cmd.py` | `internal/plugins/cmd.go` | `internal/plugins/cmd_test.go` (14 tests, real `httptest` repository server with real computed sha256 checksums) | Ported | Rewritten against the Go-only third-party plugin distribution system, `internal/pluginrpc` (versioned TOML manifests, checksum-verified compiled executables) — no more `.py`-file zip download/unzip. `list`/`search`/`enable`/`disable`/`edit` behave like the original; `install`/`uninstall`/`upgrade`/`update` operate on manifests instead of Python source files. A bundled plugin name is a no-op success (it's already compiled in); a legacy Python `.py` plugin name fails with a clear migration message instead of being silently installed or ignored (`legacyPythonPluginMessage`) — see `docs/plugin-development.md`. `edit` still shells out to `$EDITOR`/vim via `os/exec` with explicit argv, never a shell string |
-| `pwnagotchi/utils.py` | `internal/config` (ParseVersion/CompareVersions, MergeConfig/KeysToStr, RemoveWhitelisted/SecsToHHMMSS, NormalizeDisplayType, StatusFile, LoadConfig/SaveConfig) | `internal/config/*_test.go` (golden-fixture + Python-differential, incl. `display_type_normalize_golden.json` generated by actually executing utils.py's if/elif chain) | Ported | `parse_version`/`--check-update` lexical-string quirk, the boot-config "missing %-operator" print bug, and StatusFile's raw-format `TypeError`-on-substring-match are all intentionally replicated, not fixed. TOML parsed via BurntSushi/toml instead of tomlkit/toml (see known-differences.md for key-order-on-write divergence) |
-| `pwnagotchi/utils.py` (`iface_channels`) | `internal/config/ifacechannels.go` | `internal/config/ifacechannels_test.go` (fake-Runner) **+ `tests/live_hardware_test.go` (`-tags=live`, VERIFIED against a real MediaTek MT7612U USB adapter — real `iw` output, 39 real channels returned including 2.4GHz 1-14 and 5GHz incl. DFS)** | Ported, hardware-verified | reimplements the `iw ... info \| grep \| cut \| sed` shell pipeline as native Go string parsing (no shell, closing the theoretical command-injection surface Python's unescaped `%s` interpolation into a shell string has, even though `ifname` only ever comes from the local admin's own config) |
-| `pwnagotchi/utils.py` (`md5`, `download_file`, `unzip`) | `internal/config/fileutil.go` (`MD5`, `DownloadFile`, `Unzip`) | `internal/config/fileutil_test.go` | Ported | a previous revision of this row was stale, claiming these were unported — corrected; they're real, tested code, used by `internal/plugins`' install/upgrade path |
-| `pwnagotchi/utils.py` (`extract_from_pcap`) | `internal/wifiparse` (`ExtractFromPCAP`, pure-Go pcap/RadioTap/802.11 parsing — no scapy, no cgo) | `internal/wifiparse/extract_test.go`, `pcap_test.go` | Ported | A previous revision of this row claimed this was intentionally not ported because its only two callers (`grid`/`wigle` plugins) ran as real Python behind the since-removed bridge — stale, corrected. Both plugins are native Go now (`internal/plugins/native/grid`, `internal/plugins/native/wigle`) and use `internal/wifiparse` directly for BSSID/ESSID/encryption/channel/RSSI extraction |
-| `pwnagotchi/identity.py` | `internal/identity/identity.go` | `internal/identity/identity_test.go` (openssl-backed unit tests: generate/load, regenerate-on-corruption, sign-produces-a-verifiable-signature) | Ported | shells out to external `pwngrid -generate -keys <path>` via `os/exec` (explicit argv, no shell string, unlike Python's `os.system("... '%s'" % path)`); replicates pycryptodome's "PubKeyPEM always X.509 SubjectPublicKeyInfo body with RSA-PUBLIC-KEY header/footer" quirk and its no-trailing-newline PEM encoding byte-for-byte. This was previously cross-verified byte-exact against a real pycryptodome-generated key via a dedicated differential test (`tests/compat_identity_test.go`); that test was deleted along with the rest of the Python-comparison infrastructure and has not been replaced — see `docs/known-differences.md`, a disclosed reduction in verification strength, not a known behavior change |
-| `pwnagotchi/automata.py` | `internal/automata/automata.go` | `internal/automata/automata_test.go` | Ported | `View`/`EventEmitter`/`PeerSource`/`Restart` are interfaces/callbacks the composing `Agent` wires up (mirroring Python's multiple-inheritance mixin, where `self._peers`/`self._restart` come from the concrete `Agent` class, not `Automata` itself); reads `epoch.Epoch`'s exported counters without a lock, matching Python's own unsynchronized direct attribute access — safe only if one goroutine drives epoch mutation (documented in known-differences.md) |
-| `pwnagotchi/epoch.py` | `internal/epoch/epoch.go` | `internal/epoch/epoch_test.go` (incl. `formatEpochLogLine` golden test against real Python `%`-format output, covering the `%d`-on-float truncation and `%.2f` binary-rounding quirks) | Ported | `[epoch N] ...` log line format matched byte-for-byte; counters guarded by a mutex (Python relies on the GIL, Go does not — a necessary structural addition, not a behavior change); `AccessPointObservation`/`PeerObservation` are minimal projections pending `internal/bettercap` and `internal/mesh/peer.go` |
-| `pwnagotchi/bettercap.py` | `internal/bettercap/client.go` | `internal/bettercap/client_test.go` (httptest + real websocket server) | Ported | `decode()`'s "200-with-invalid-JSON returns raw text, non-200 raises" behavior replicated exactly; `Run` retries forever only on connection-level errors (not other errors), matching Python's `except requests.exceptions.ConnectionError`; gorilla/websocket rejects userinfo in `ws://` URLs (Python's `websockets` lib accepts it) so credentials are extracted into a real `Authorization: Basic` header instead — same wire-level auth, different construction (see known-differences.md) |
-| `pwnagotchi/grid.py` | `internal/grid/grid.go` | `internal/grid/grid_test.go` (httptest) | Ported | replicates the real `advertise(enabled=False)` operator-precedence bug (calls path `"false"` instead of `"/mesh/false"`, verified against actual Python evaluation); `update_data`'s pointless brain.json read-and-discard preserved; `(connect,read)` timeout tuple approximated via a dedicated dialer + `ResponseHeaderTimeout` (see known-differences.md); `uname -a`/`bettercap -version`/`pwngrid -version` run via `os/exec` with explicit argv, not a shell, unlike Python's `subprocess.getoutput` (fixed literal commands, so no behavior change, only reduced injection surface) |
-| `pwnagotchi/log.py` (`LastSession`) | `internal/session/lastsession.go` | `internal/session/lastsession_test.go` (Python-golden transcript incl. the min/max-reward `if/elif` mutual-exclusivity bug) | Ported | reads the log file into memory rather than streaming backwards in chunks (Python's `file_read_backwards`) — same output, more memory on very large logs (known-differences.md); `_parse_datetime`'s local-timezone interpretation (`time.mktime`) replicated via `time.ParseInLocation(..., time.Local)` |
-| `pwnagotchi/log.py` (`setup_logging`, `log_rotation`, `parse_max_size`, `do_rotate`) | `internal/logging/logging.go`, `internal/logging/rotation.go` | `internal/logging/rotation_test.go` | Ported | exact `[asctime] [LEVELNAME] [threadName] : message` line format; root-level-gates-before-handlers semantics replicated (a DEBUG message never reaches either file when not in debug mode, even though the debug-file handler's own level is DEBUG); `parse_max_size`'s "trailing garbage after a valid prefix is ignored, not rejected" quirk (`"10x"` → `10`) verified against Python; `do_rotate`'s literal (non-extension-aware) `"gz"→"log"` substring replace, including the first-rotation same-path-move-is-a-no-op edge case, reproduced exactly (see known-differences.md) — **not yet wired to other already-ported packages**, which still log via Go's stdlib `log` package with Go's own timestamp format; migrating those call sites to `internal/logging.Logger` is tracked as outstanding work in `docs/known-differences.md` |
-| `pwnagotchi/voice.py` | `internal/voice/voice.go` | `internal/voice/voice_test.go` (incl. cross-check of the embedded Italian `.mo` catalog against real Python `gettext` output) | Ported | all ~35 message methods ported 1:1 (random.choice pools, `.format()` placeholders); `.mo` catalogs for all 184 languages copied verbatim from `pwnagotchi/locale/*/LC_MESSAGES/voice.mo` and embedded via `go:embed` (self-contained binary, no dependency on the Python package being installed — see known-differences.md); unknown-language fallback returns the msgid verbatim, matching `gettext.translation(..., fallback=True)` |
-| `pwnagotchi/agent.py` | `internal/agent/agent.go`, `recon.go`, `stats.go`, `events.go`, `recovery.go`, `helpers.go` | `internal/agent/agent_test.go` (14 tests: construction/defaults, AP whitelist+encryption filtering, channel grouping, interaction throttling, associate/deauth/set_channel epoch tracking, handshake event handling incl. duplicate suppression, recovery data round-trip) | Ported | Python's multiple inheritance (`Agent(Client, Automata, AsyncAdvertiser)`) replaced with Go composition (embedded `*bettercap.Client`, `*automata.Automata`, `*mesh.AsyncAdvertiser` — no overlapping method names, so promotion is unambiguous); Agent's OWN bettercap defaults (`127.0.0.1`/`8081`/`pwnagotchi`/`pwnagotchi`) are preserved distinctly from `bettercap.NewClient`'s generic defaults (`localhost`/`user`/`pass`) — verified in `TestNewAgentDefaultsAndBettercapWiring`; `_reboot()` passes no mode to `Reboot` (never touches the AUTO/MANU marker) while `_restart()` always does — preserved as a real, intentional-looking asymmetry; `_fetch_stats`'s per-step Python try/except (5 separate `except Exception as err: logging.error(...)` blocks) is NOT reproduced at that granularity — Go's update* helpers fail safe internally instead of surfacing 5 distinctly-worded error logs (see known-differences.md); `iface_channels`'s shell pipeline (`iw ... | grep | cut | sed`) reimplemented as native Go string parsing via `internal/config.IfaceChannels`, no shell |
+| Area | Go implementation | Status | Notes |
+|---|---|---|---|
+| CLI and modes | `cmd/pwnagotchi`, `internal/cli` | Supported | Includes complete `plugins --help` and strict argument handling |
+| TOML/YAML config | `internal/config` | Supported | Merging, legacy conversion, drop-ins, atomic writes |
+| Identity | `internal/identity` | Hardware-dependent | Uses installed `pwngrid` for key generation |
+| Bettercap client | `internal/bettercap` | Hardware-dependent | REST and WebSocket clients require the service |
+| Agent | `internal/agent` | Hardware-dependent | Recon, interaction limits, recovery, channel/history access |
+| Automata and epoch | `internal/automata`, `internal/epoch` | Supported | Main state and counters |
+| Mesh and grid | `internal/mesh`, `internal/grid` | Hardware-dependent | Requires network and pwngrid service/API |
+| Session parsing | `internal/session` | Supported | Parses prior log sessions |
+| Voice/locales | `internal/voice` | Supported | Locale catalogs embedded |
+| PCAP parsing | `internal/wifiparse` | Supported | Pure Go; no Scapy or CGO |
+| Logging implementation | `internal/logging` | Partial | Setup/rotation exist; many packages still use standard `log` |
+| Filesystem mounts | `internal/fs` | Hardware-dependent | Real mount/zram commands require Linux/root |
+| Host lifecycle | `internal/unit` | Hardware-dependent | Real hostname, restart, reboot, shutdown actions |
 
-## Mesh (`pwnagotchi/mesh/*.py`)
+## Web UI
 
-| Python file | Go implementation | Tests | Status | Known differences |
-|---|---|---|---|---|
-| `pwnagotchi/mesh/peer.py` | `internal/mesh/peer.go` | `internal/mesh/peer_test.go` | Ported | `ParseRFC3339` replicates the real quirk where a timestamp WITH fractional seconds parses successfully (the trailing 'Z' is dropped along with the fraction by the `.split('.')[0]`-equivalent truncation) while one WITHOUT fractional seconds fails to parse (the 'Z' is left in place, unconsumed by the no-timezone layout) — verified against the real interpreter; on a timestamp-parse failure Python assigns the plain fallback STRING to fields normally holding `datetime` objects (a dynamic-typing inconsistency Go's static typing can't replicate — Go parses the fallback string into a `time.Time` instead, see known-differences.md) |
-| `pwnagotchi/mesh/utils.py` | `internal/mesh/advertiser.go` | `internal/mesh/advertiser_test.go` | Ported | `AsyncAdvertiser`'s peer map is mutex-guarded (Python relies on the GIL across its single polling thread); `View`/`EventEmitter`/`Grid`/`Epoch`/`HandshakesCount` are interfaces/callbacks the composing `Agent` wires up, mirroring Python's mixin-supplied `self._peers`/`self._epoch`/`self._handshakes` |
-| `pwnagotchi/mesh/wifi.py` | `internal/mesh/wifi.go` | `internal/mesh/wifi_test.go` (golden fixtures from `testdata/python_golden.json`) | Ported | `FreqToChannel` takes `int` (not `float64`): real callers pass scapy integer frequencies, and Python's error-message text differs between `int` and `float` inputs (verified against the real interpreter) |
+| Area | Status | Notes |
+|---|---|---|
+| Main UI and frame endpoint | Supported | Embedded templates/assets and rendered frame cache |
+| Basic authentication | Supported | Enabled in packaged defaults; placeholder credentials must be changed |
+| CSRF | Supported | Unsafe core and generic plugin webhook requests are checked |
+| Inbox | Supported | Read via GET; seen/delete mutations use POST |
+| Plugin list/toggle/upgrade | Supported | POST, name validation, config rollback on failed save |
+| `webcfg` | Supported | Structured TOML rewrite and atomic save |
+| `logtail` | Supported | Native streaming endpoint |
+| CORS | Supported | Explicit configured origin only |
+| HTTP resource limits | Supported | Header/read/write/idle limits and bounded structured bodies |
 
-## Filesystem (`pwnagotchi/fs/__init__.py`)
+## Plugins
 
-| Python file | Go implementation | Tests | Status | Known differences |
-|---|---|---|---|---|
-| `pwnagotchi/fs/__init__.py` | `internal/fs/atomic.go` (EnsureWrite/SizeOf), `internal/fs/memoryfs.go` (MemoryFS mount/zram/sync via a `Runner` seam over `os/exec`, no shell strings) | `internal/fs/atomic_test.go`, `internal/fs/memoryfs_test.go` | Ported (mount/zram logic real; verified via fake `Runner` since real mounts need root — see docs/known-differences.md) | `diskfree_linux.go` uses `statfs(2)` directly; `diskfree_other.go` returns a clear unsupported error on non-Linux instead of a fake value. `ensure_write`'s resulting file permissions (0600, from the temp file) rather than the original target's permissions is replicated, not "fixed" |
+| Area | Status | Notes |
+|---|---|---|
+| Built-in manager | Supported | Lifecycle locking, serial queues, panic isolation, status counters |
+| 23 bundled plugins + `example` | Supported | All are native Go; see plugin compatibility matrix |
+| Installed plugin discovery | Supported | Registered at startup after strict validation |
+| Repository index | Supported | Strict JSON, versioned, 1 MiB limit |
+| Manifest | Supported | Strict TOML, target/name/capability checks, 256 KiB limit |
+| Binary install/upgrade | Supported | 128 MiB limit, SHA-256, staging, rollback |
+| Built-in service updater | Partial | Checks by default; opt-in bettercap/pwngrid replacement requires checksum and rollback; daemon self-update is report-only |
+| Third-party RPC | Supported | `Log`, `Agent`, `View`, `Exec`, `Clock` |
+| Public plugin SDK | Supported | `pkg/plugin`; event callbacks may safely call capabilities |
+| Crash isolation | Supported | Child exit and missed-heartbeat detection |
+| Third-party webhook/routes | Unsupported | Remote protocol has no web capability |
+| Python plugin loading | Unsupported | No Python bridge or `.py` fallback |
+| Plugin signatures/sandbox | Unsupported | Checksums are not signatures; processes are not sandboxed |
 
-## UI (`pwnagotchi/ui/*.py`)
+## UI and Hardware
 
-| Python file | Go implementation | Tests | Status | Known differences |
-|---|---|---|---|---|
-| `pwnagotchi/ui/state.py` | `internal/ui/state/state.go` | `internal/ui/state/state_test.go` | Ported | `Element` is a small interface (Value/SetValue) instead of duck-typing a `.value` attribute; change/listener semantics (only fire on an actual value change, `Set` on a missing key is a no-op not a KeyError) verified |
-| `pwnagotchi/ui/colors.py` | (not ported separately) | n/a | Out of scope | byte-for-byte duplicate of faces.py; verified via repo-wide grep that nothing imports `pwnagotchi.ui.colors` — genuinely dead code upstream |
-| `pwnagotchi/ui/faces.py` | `internal/ui/faces/faces.go` | `internal/ui/faces/faces_test.go` | Ported | `LoadFromConfig` overrides named fields only; an unrecognized config key is silently ignored (Python's version would create a new, permanently-unused module global for it — equally inert, different mechanism) |
-| `pwnagotchi/ui/fonts.py` | `internal/ui/fonts/fonts.go` | `internal/ui/fonts/fonts_test.go` (incl. a real rasterization sanity check — drawn text produces actual dark pixels) | Ported | embeds the real `DejaVuSansMono.ttf`/`DejaVuSansMono-Bold.ttf` files (copied verbatim from this machine's installed fonts) via `go:embed`, since Go has no fontconfig to resolve a bare font-family name the way Pillow's `ImageFont.truetype` does; `StatusFont` can only actually change size (not resolve an arbitrary configured font-family string to a file) for the same reason |
-| `pwnagotchi/ui/components.py` | `internal/ui/components/components.go` (Text/Line/Rectangle/FilledRect/Bitmap/LabeledValue, targeting `image`/`golang.org/x/image/font` instead of Pillow) | `internal/ui/components/components_test.go` (real-pixel assertions) + `tests/visual/golden_test.go` (full-frame pixel diff against a real-Python-rendered golden PNG, see `docs/rendering-investigation.md`) | Ported | multi-line `Text.Draw` reproduces Pillow's exact line-pitch formula (`pilLineSpacing`: glyph-bbox of "A" + a hardcoded 4px default `spacing`, NOT the font's design line-height metric) — a real bug in a prior revision of this function caused wrapped `status` text to overlap/garble past line 1; see `docs/rendering-investigation.md` for the full trace. Glyph anti-aliasing uses 4×-supersample-then-threshold (`components.SupersampleFactor`, `Text.SuperFont`) to approximate FreeType's native small-size hinting on a 1-bit canvas; residual ~4.5% pixel-level edge/small-glyph divergence from Python is documented as unavoidable rasterizer difference, not a functional bug |
-| `pwnagotchi/ui/view.py` | `internal/ui/view/view.go`, `elements.go` (widget scene graph), `mood.go` (on_starting/on_normal/on_new_peer/... incl. real 3s sleep on new-peer per Python) | `internal/ui/view/view_test.go` | Ported | the full state-orchestration + frame-render loop: `Update()` builds a real `image.Gray` canvas, draws every widget via `internal/ui/components`, and calls the resolved `hw.Driver.Render`; `IsNormal()`'s real Python bug (string-concatenation instead of a tuple, making face membership a substring test) is reproduced exactly and verified against the real interpreter; `internal/cli.HeadlessView` remains the separate, legitimate no-display operating mode |
-| `pwnagotchi/ui/display.py` | `internal/ui/display/display.go` | `internal/ui/display/display_test.go` (incl. `on_frame` hook actually running a real shell command, and disabled-display still rendering while skipping `Initialize`) | Ported | ties `view.go` to a resolved `hw.Driver` (`hw.NewDriver` + `initDisplay` + background `renderThread`); `on_frame` runs via `exec.Command("sh", "-c", cmd)`, matching Python's own `os.system(...)` (a real shell is required here for compatibility with whatever shell syntax an operator's configured `on_frame` command uses — this is the one place in the port where a shell string is intentional, not an oversight, per the porting goal's "avoid shell strings unless required" carve-out) |
-| `pwnagotchi/ui/hw/__init__.py` (`display_for`) | `internal/ui/hw/registry.go`, `registry_gen.go` (generated from `testdata/hw_driver_registry.json`, itself extracted from the real Python dispatch table by regex) | `internal/ui/hw/hw_test.go` (incl. an exhaustive check that every possible `NormalizeDisplayType` output resolves to *something*) | Ported | discovered a genuine upstream bug while porting: `"weact2in9"` normalizes successfully (`utils.load_config`) but has **no** matching `elif` branch in `display_for()` at all, and no trailing `else` — real Python silently returns `None` there and crashes later with `AttributeError` the first time anything calls a display method. The Go port surfaces this as `hw.ErrNoDriverInPythonEither`, a named, documented case — see known-differences.md |
-| `pwnagotchi/ui/hw/base.py` | `internal/ui/hw/driver.go` (`Driver` interface, `Layout`/`StatusLayout`/`Point`) | `internal/ui/hw/hw_test.go` | Ported | |
-| `pwnagotchi/ui/hw/dummydisplay.py` | `internal/ui/hw/dummy.go` | `internal/ui/hw/hw_test.go` | Ported | the one driver with no real hardware to talk to, so (like Python) `Initialize`/`Render`/`Clear` are real, correct no-ops; `Layout()` does the real width/height-derived widget-position and font-size math |
-| remaining ~92 `pwnagotchi/ui/hw/*.py` drivers | `internal/ui/hw/registry.go` (`unsupportedDriver`) | `internal/ui/hw/hw_test.go` | Interface-only (explicit `ErrUnsupportedDisplay`, never fake success) | each resolves to a `Driver` that reports its own real Python class name (e.g. `"WaveshareV4"`) but returns a typed, wrapped error from every real operation; real SPI/I2C/GPIO implementations are pending actual hardware to verify against, per the porting goal's own rule that fakes are test-only |
+| Area | Status | Notes |
+|---|---|---|
+| Canvas, widgets, fonts | Supported | Pure-Go rendering with embedded fonts |
+| Headless view | Supported | Used when display is disabled or initialization fails |
+| `DummyDisplay` | Supported | Functional no-hardware driver |
+| Physical display layouts/registry | Partial | Names and layouts resolve |
+| Physical display I/O | Unsupported | E-ink/OLED/LCD initialize/render/clear return explicit errors |
+| I2C | Hardware-dependent | Linux `i2c-dev` backend using `/dev/i2c-*` |
+| GPIO | Hardware-dependent | Linux sysfs backend; no pull-bias configuration |
+| SPI | Unsupported | Interface exists; no production implementation |
+| PWM | Unsupported | No generalized production capability |
+| Pi onboard monitor mode | Hardware-dependent | Requires compatible Nexmon kernel/firmware |
+| USB monitor adapter | Hardware-dependent | Launcher prefers a non-`brcmfmac` adapter |
 
-## Web UI (`pwnagotchi/ui/web/*.py`)
+## Deployment
 
-| Python file | Go implementation | Tests | Status | Known differences |
-|---|---|---|---|---|
-| `pwnagotchi/ui/web/__init__.py` | `internal/web/frame.go` (`UpdateFrame`/`FramePath`/`FrameCType`) | `internal/web/server_test.go`'s `TestUIRouteServesRealFrameOr404` | Ported | wired into `internal/ui/view.View.OnRender` from `cmd/pwnagotchi/main.go`, matching `view.py`'s own `web.update_frame(self._canvas)` call at the end of every real render |
-| `pwnagotchi/ui/web/server.py` | `internal/web/server.go` | `internal/web/server_test.go` (basic-auth gating, CORS, real `net/http.Server` start/stop) | Ported | real `net/http` in place of Flask/Werkzeug; `Start()`/`Stop(ctx)` are explicit instead of Python's implicit daemon-thread-dies-with-process shutdown |
-| `pwnagotchi/ui/web/handler.py` | `internal/web/handler.go`, `handler_plugins.go`, `auth.go`, `csrf.go`, `assets.go` (real embedded `static/`+`templates/`, copied verbatim from the real Python static assets) | `internal/web/server_test.go` (index/ui/theme/static/auth/CSRF routes) + `internal/web/handler_plugins_manager_test.go` (plugins index/webhook/toggle routes against the real `pluginmanager.Manager`) | Ported | all routes preserved (index, `/ui`, `/css/theme.css`, shutdown/reboot/restart, inbox family via the already-ported `internal/grid`, plugins family routed to `internal/pluginmanager.Manager` — the Python bridge this used to describe is deleted; an unknown plugin name now gets a real 404, not a bridge-unavailable 503); CSRF via a real double-submit-cookie scheme (not byte-identical to Flask-WTF's session-bound tokens, but not weaker — see known-differences.md); Jinja templates ported to `html/template` using its `{{block}}`/`{{define}}` inheritance (functionally equivalent, not byte-identical HTML — unlike the CLI text output, this was not diffed byte-for-byte against real Flask/Jinja rendering); `/plugins/upgrade` calls `internal/plugins.Update`/`Upgrade` in-process instead of Python's `os.system("pwnagotchi plugins update && ...")`, removing a real (if low-risk) shell-interpolation surface; `/mesh/memory`'s real JSON shape (peers page) isn't pinned down by an existing test, so `normalizePeers` defensively accepts either an array or an id-keyed object — see known-differences.md |
+| Area | Status | Notes |
+|---|---|---|
+| Static arm64 daemon build | Supported | `CGO_ENABLED=0 GOOS=linux GOARCH=arm64` |
+| systemd service | Supported | Runs daemon as root on the image |
+| bettercap build | Hardware/image-dependent | Built natively in arm64 pi-gen chroot |
+| pwngrid install | Supported by pipeline | Checksum-verified arm64 release |
+| I2C boot enablement | Supported by updated pipeline | `dtparam=i2c_arm=on` |
+| `pwnagotchi` command alias | Supported by updated pipeline | Symlink to `/usr/bin/pwnagotchi-go` |
+| Daemon updates | Supported manually/image rebuild | The running daemon is not replaced by its own auto-update callback |
+| Full image reproducibility | Partial | Kernel/Nexmon and upstream archive drift remain sensitive |
 
-## Plugin system (`pwnagotchi/plugins/*.py`)
+## Verification
 
-| Python file | Go implementation | Tests | Status | Known differences |
-|---|---|---|---|---|
-| `pwnagotchi/plugins/__init__.py` | `internal/pluginmanager` (`Manager`, lifecycle/event dispatch/capabilities/panic isolation) | `internal/pluginmanager/manager_test.go` + every native plugin's own `_test.go` | Ported | Replaces the earlier Python subprocess/IPC bridge (`internal/pyplugin`) entirely — deleted, no fallback. See `docs/plugin-development.md` for the native plugin API and `docs/plugin-compatibility-matrix.md` for architecture/verification detail. `agent`/`view`/`display` values passed to `HandleEvent`/`OnLoad` are real, non-stubbed `Capabilities` types (Agent/View/Bettercap/Grid/State/Exec/HTTPClient/Clock/GPIO/I2C/SPI/Web/System/Log) — there is no cross-process marshaling boundary, so the bridge-era proxy-stub limitation cannot occur |
-| `pwnagotchi/plugins/default/example.py` | `internal/plugins/native/example` (reference implementation of every plugin hook) | `example_test.go` (8 tests) | Ported | |
-| `pwnagotchi/plugins/default/*.py` (23 bundled plugins) | `internal/plugins/native/*` (20 plugins) + `internal/web/logtail.go`, `internal/web/webcfg.go`, `internal/wpasec/wpasec.go` (3 plugins pulled out for structural reasons — see their rows in `docs/plugin-compatibility-matrix.md`) | Every plugin has its own Go test file; see `docs/plugin-compatibility-matrix.md` for the full per-plugin table (capabilities implemented, test counts, hardware caveats) | Ported | The original `pwnagotchi/plugins/default/*.py` source files remain on disk, unexecuted, only because the display-hardware-adjacent parts of the Python tree they're interleaved with are out of scope for this migration by user request — see the root `README.md`. Two real bugs found and fixed during the native port (not go-port defects, but real upstream Python fragility this port does not replicate): `pisugarx`'s config-read path and `wpa-sec`'s upload path both worked incorrectly under the old bridge; both work correctly now that they call real, non-stubbed methods directly — see `docs/known-differences.md` |
+The normal release gate is:
 
-## Build/deploy infra (not part of the daemon)
+```sh
+go fmt ./...
+go test ./...
+go test -race ./...
+go vet ./...
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 \
+  go build -trimpath -o /tmp/pwnagotchi-go ./cmd/pwnagotchi
+bash -n deploy/scripts/* deploy/pi-gen-stage/*/*.sh
+```
 
-| Path | Status |
-|---|---|
-| `Makefile` | Out of scope (OS image build) |
-| `deploy/pi-gen-stage/**` (successor to the old `stage3/**`/`config-32bit`/`config-64bit`, deleted in the root-module restructure) | Out of scope (pi-gen chroot stages) — Go-only as of the packaging pass: no Python/pip installed into the image, `deploy/scripts/check-plugins.py` replaced by the native `pwnagotchi plugins doctor` subcommand (`internal/plugins/doctor.go`) |
-| `scripts/*.sh`, `scripts/*.bat`, `scripts/*.ps1` | Out of scope (host-side operator tooling) |
-| `pwnagotchi/locale/**` | Data consumed by `internal/voice`; not code, tracked as an asset dependency of the Voice port |
-
-## Progress summary
-
-Updated after every subsystem lands; see `docs/migration-ledger.md` for
-the running, evidence-based log of what changed and when. As of this
-writing: every row in this table is either **Ported** or **Interface-only**
-except the ~92 remaining real display-hardware driver implementations and
-the display-table generator scripts, which are explicitly out of scope for
-the current phase of this migration by user request — see the root
-`README.md`'s "Status and known gaps" section. This means the migration is
-**not** "done" per `GO_ONLY_MIGRATION_PROMPT.md`'s own literal gates (no
-tracked `.py` files); that specific, disclosed gap is the reason.
+Hardware tests remain separate because they can alter interfaces, buses, or
+host lifecycle state.

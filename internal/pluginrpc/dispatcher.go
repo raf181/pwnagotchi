@@ -16,15 +16,10 @@ import (
 // manifest) are ever wired live; anything else dispatches a clear
 // "capability not granted" error rather than silently no-op'ing.
 //
-// This wires a real, representative, tested subset end to end
-// (Log.Printf, Agent.Run, Agent.Session, View.Set, View.Update,
-// Exec.Run, Clock.Now) proving the mechanism; every other Capabilities
-// method follows the exact same registration shape (add one case to
-// Dispatch, marshal typed args in, typed result out) and is intentionally
-// left as fast, mechanical follow-up rather than blocked on any design
-// uncertainty — see this package's doc comment / the migration ledger
-// for an explicit note that this is real-but-partial coverage, not a
-// stub.
+// The supported RPC surface is deliberately small and versioned:
+// Log.Printf; Agent.Run, Agent.Session, Agent.SupportedChannels, and
+// Agent.ResetHistory; View.Set and View.Update; Exec.Run; and Clock.Now.
+// Manifest validation rejects capability groups outside this surface.
 type CapabilityDispatcher struct {
 	Caps    pluginmanager.Capabilities
 	Granted map[string]bool // capability names (e.g. "Agent", "View") this plugin's manifest declared
@@ -74,16 +69,17 @@ type logArgs struct {
 func (d *CapabilityDispatcher) Dispatch(method string, args json.RawMessage) (interface{}, error) {
 	switch method {
 	case "Log.Printf":
-		if !d.granted("Log") && d.Caps.Log == nil {
+		if !d.granted("Log") {
+			return nil, fmt.Errorf("pluginrpc: plugin was not granted the Log capability")
+		}
+		if d.Caps.Log == nil {
 			return nil, fmt.Errorf("pluginrpc: Log capability not available")
 		}
 		var a logArgs
 		if err := json.Unmarshal(args, &a); err != nil {
 			return nil, err
 		}
-		if d.Caps.Log != nil {
-			d.Caps.Log.Printf("%s", a.Message)
-		}
+		d.Caps.Log.Printf("%s", a.Message)
 		return nil, nil
 
 	case "Agent.Run":
@@ -115,6 +111,25 @@ func (d *CapabilityDispatcher) Dispatch(method string, args json.RawMessage) (in
 			return nil, err
 		}
 		return d.Caps.Agent.Session(a.Session)
+
+	case "Agent.SupportedChannels":
+		if !d.granted("Agent") {
+			return nil, fmt.Errorf("pluginrpc: plugin was not granted the Agent capability")
+		}
+		if d.Caps.Agent == nil {
+			return nil, fmt.Errorf("pluginrpc: Agent capability not available")
+		}
+		return d.Caps.Agent.SupportedChannels(), nil
+
+	case "Agent.ResetHistory":
+		if !d.granted("Agent") {
+			return nil, fmt.Errorf("pluginrpc: plugin was not granted the Agent capability")
+		}
+		if d.Caps.Agent == nil {
+			return nil, fmt.Errorf("pluginrpc: Agent capability not available")
+		}
+		d.Caps.Agent.ResetHistory()
+		return nil, nil
 
 	case "View.Set":
 		if !d.granted("View") {

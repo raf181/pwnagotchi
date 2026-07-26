@@ -4,12 +4,16 @@ import (
 	"archive/zip"
 	"crypto/md5"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
+
+var downloadHTTPClient = &http.Client{Timeout: 5 * time.Minute}
 
 // MD5 mirrors utils.md5: the hex-encoded MD5 digest of a file's contents.
 func MD5(path string) (string, error) {
@@ -29,13 +33,13 @@ func MD5(path string) (string, error) {
 // destination. Python raises on a non-2xx status (resp.raise_for_status());
 // replicated as a returned error.
 func DownloadFile(url, destination string) error {
-	resp, err := http.Get(url)
+	resp, err := downloadHTTPClient.Get(url)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return &http.ProtocolError{ErrorString: "download_file: unexpected status " + resp.Status}
+		return fmt.Errorf("download file: unexpected status %s", resp.Status)
 	}
 	f, err := os.Create(destination)
 	if err != nil {
@@ -74,7 +78,10 @@ func Unzip(file, destination string, stripDirs int) error {
 				continue
 			}
 		}
-		target := filepath.Join(destination, name)
+		target, err := archiveTarget(destination, name)
+		if err != nil {
+			return err
+		}
 		if f.FileInfo().IsDir() {
 			if err := os.MkdirAll(target, 0o755); err != nil {
 				return err
@@ -89,6 +96,19 @@ func Unzip(file, destination string, stripDirs int) error {
 		}
 	}
 	return nil
+}
+
+func archiveTarget(destination, name string) (string, error) {
+	name = filepath.FromSlash(name)
+	if !filepath.IsLocal(name) {
+		return "", fmt.Errorf("unzip: archive entry %q escapes destination", name)
+	}
+	target := filepath.Join(destination, filepath.Clean(name))
+	rel, err := filepath.Rel(destination, target)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("unzip: archive entry %q escapes destination", name)
+	}
+	return target, nil
 }
 
 func extractZipFile(f *zip.File, target string) error {

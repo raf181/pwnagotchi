@@ -256,6 +256,51 @@ func TestRestartRequiresValidCSRFAndInvokesRealAction(t *testing.T) {
 	}
 }
 
+func TestInboxMarkRequiresPostAndCSRF(t *testing.T) {
+	s := newTestServer(config.Map{"enabled": true}, fakeAgentInfo{}, &fakeActions{})
+	mux := newMux(s)
+
+	rr := httptest.NewRecorder()
+	mux.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/inbox/1/seen", nil))
+	if rr.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("GET mark status = %d, want 405", rr.Code)
+	}
+
+	rr = httptest.NewRecorder()
+	mux.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/inbox/1/seen", nil))
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("POST mark without CSRF status = %d, want 403", rr.Code)
+	}
+
+	cookie := getCSRFCookie(t, mux)
+	req := httptest.NewRequest(http.MethodPost, "/inbox/1/seen", nil)
+	req.AddCookie(cookie)
+	req.Header.Set("X-CSRF-Token", cookie.Value)
+	rr = httptest.NewRecorder()
+	mux.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("POST mark with CSRF status = %d, want 200", rr.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/inbox/0/seen", nil)
+	req.AddCookie(cookie)
+	req.Header.Set("X-CSRF-Token", cookie.Value)
+	rr = httptest.NewRecorder()
+	mux.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("invalid message id status = %d, want 400", rr.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/inbox/1/unsupported", nil)
+	req.AddCookie(cookie)
+	req.Header.Set("X-CSRF-Token", cookie.Value)
+	rr = httptest.NewRecorder()
+	mux.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("invalid mark status = %d, want 400", rr.Code)
+	}
+}
+
 func TestPluginsIndexWithoutBridgeReturnsClearError(t *testing.T) {
 	s := newTestServer(config.Map{"enabled": true}, fakeAgentInfo{}, &fakeActions{})
 	rr := httptest.NewRecorder()

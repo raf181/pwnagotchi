@@ -42,6 +42,27 @@ options:
   --donate              How to donate to this project.
 `
 
+const PluginHelpText = `usage: pwnagotchi plugins [-h]
+                          {search,list,update,upgrade,enable,disable,install,uninstall,edit,doctor} ...
+
+Manage bundled and separately compiled Go plugins.
+
+positional arguments:
+  search                Search the configured repository.
+  list                  List installed and available plugins.
+  update                Check repository connectivity.
+  upgrade               Upgrade installed third-party plugins.
+  enable                Enable a plugin in config.toml.
+  disable               Disable a plugin in config.toml.
+  install               Install a third-party Go plugin.
+  uninstall             Remove a third-party Go plugin.
+  edit                  Edit one plugin's configuration.
+  doctor                Validate bundled and installed plugins.
+
+options:
+  -h, --help            show this help message and exit
+`
+
 // DonateText mirrors cli.py's --donate output exactly.
 const DonateText = "Donations can be made @ \n " +
 	"https://github.com/sponsors/jayofelony \n\n" +
@@ -177,11 +198,12 @@ var pluginSubcommands = map[string]bool{
 func parsePluginArgs(argv []string, stdout, stderr *os.File) (*PluginArgs, error) {
 	pa := &PluginArgs{}
 	if len(argv) == 0 {
-		// Matches Python: `plugincmd` remains None (subparsers dest with no
-		// required=True), used_plugin_cmd(args) is still True (hasattr),
-		// but handle_cmd's if/elif chain falls through to `raise
-		// NotImplementedError()`.
-		return pa, nil
+		fmt.Fprint(stdout, PluginHelpText)
+		return nil, &ExitError{Code: 0}
+	}
+	if argv[0] == "-h" || argv[0] == "--help" {
+		fmt.Fprint(stdout, PluginHelpText)
+		return nil, &ExitError{Code: 0}
 	}
 	if !pluginSubcommands[argv[0]] {
 		fmt.Fprintf(stderr, "pwnagotchi: error: argument {plugins}: invalid choice: %q\n", argv[0])
@@ -191,21 +213,36 @@ func parsePluginArgs(argv []string, stdout, stderr *os.File) (*PluginArgs, error
 	pa.Pattern = "*" // upgrade's own default; overwritten below for search which requires it
 
 	rest := argv[1:]
+	for _, arg := range rest {
+		if arg == "-h" || arg == "--help" {
+			fmt.Fprint(stdout, pluginSubcommandHelp(pa.Cmd))
+			return nil, &ExitError{Code: 0}
+		}
+	}
 	switch pa.Cmd {
 	case "search":
 		if len(rest) == 0 {
 			fmt.Fprintln(stderr, "pwnagotchi: error: the following arguments are required: pattern")
 			return nil, &ExitError{Code: 2}
 		}
+		if len(rest) > 1 {
+			return nil, pluginUnexpectedArgs(stderr, rest[1:])
+		}
 		pa.Pattern = rest[0]
 	case "upgrade":
 		if len(rest) > 0 {
 			pa.Pattern = rest[0]
 		}
+		if len(rest) > 1 {
+			return nil, pluginUnexpectedArgs(stderr, rest[1:])
+		}
 	case "list":
 		for _, arg := range rest {
-			if arg == "-i" || arg == "--installed" {
+			switch arg {
+			case "-i", "--installed":
 				pa.Installed = true
+			default:
+				return nil, pluginUnexpectedArgs(stderr, []string{arg})
 			}
 		}
 	case "enable", "disable", "install", "uninstall", "edit":
@@ -213,12 +250,41 @@ func parsePluginArgs(argv []string, stdout, stderr *os.File) (*PluginArgs, error
 			fmt.Fprintln(stderr, "pwnagotchi: error: the following arguments are required: name")
 			return nil, &ExitError{Code: 2}
 		}
+		if len(rest) > 1 {
+			return nil, pluginUnexpectedArgs(stderr, rest[1:])
+		}
 		pa.Name = rest[0]
 	case "update":
-		// no extra arguments
+		if len(rest) > 0 {
+			return nil, pluginUnexpectedArgs(stderr, rest)
+		}
 	case "doctor":
-		// --all/--no-hardware accepted, currently no-ops — see
-		// pluginSubcommands' doc comment.
+		for _, arg := range rest {
+			if arg != "--all" && arg != "--no-hardware" {
+				return nil, pluginUnexpectedArgs(stderr, []string{arg})
+			}
+		}
 	}
 	return pa, nil
+}
+
+func pluginUnexpectedArgs(stderr *os.File, args []string) error {
+	fmt.Fprintf(stderr, "pwnagotchi: error: unrecognized arguments: %s\n", strings.Join(args, " "))
+	return &ExitError{Code: 2}
+}
+
+func pluginSubcommandHelp(cmd string) string {
+	usage := map[string]string{
+		"search":    "search [-h] pattern",
+		"list":      "list [-h] [-i]",
+		"update":    "update [-h]",
+		"upgrade":   "upgrade [-h] [pattern]",
+		"enable":    "enable [-h] name",
+		"disable":   "disable [-h] name",
+		"install":   "install [-h] name",
+		"uninstall": "uninstall [-h] name",
+		"edit":      "edit [-h] name",
+		"doctor":    "doctor [-h] [--all] [--no-hardware]",
+	}
+	return fmt.Sprintf("usage: pwnagotchi plugins %s\n\noptions:\n  -h, --help  show this help message and exit\n", usage[cmd])
 }

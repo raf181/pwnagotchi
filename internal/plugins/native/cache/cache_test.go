@@ -103,6 +103,18 @@ func TestHostnameSanitizationStripsNonAlphanumerics(t *testing.T) {
 	}
 }
 
+func TestCacheRejectsUnsafeMACFilename(t *testing.T) {
+	p, cacheDir, _ := newTestPlugin(t)
+	p.writeAPCache(apMap("../../outside", "router"))
+	entries, err := os.ReadDir(cacheDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("unsafe MAC created cache files: %v", entries)
+	}
+}
+
 func TestHandshakeWithMapAPCachesRealFile(t *testing.T) {
 	p, cacheDir, _ := newTestPlugin(t)
 	ap := apMap("CC:CC:CC:CC:CC:CC", "handshakeap")

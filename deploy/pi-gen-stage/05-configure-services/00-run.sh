@@ -64,9 +64,8 @@ install -m 644 "${DEPLOY_DIR}/modules-load.d/usb-gadget.conf" \
 # effectively disabled (rpi-swap's own config commented out,
 # zram-generator explicitly disabling zram0 unless configured) — see
 # ../../rpi-swap/10-enable-zram.conf's own comment for why that's a
-# real problem on a 512MB-RAM Pi Zero 2 W running bettercap + the Go
-# daemon + the Python plugin bridge + a freshly built nexmon module
-# concurrently at boot.
+# real problem on a 512MB-RAM Pi Zero 2 W running bettercap, pwngrid,
+# the Go daemon, and a freshly built nexmon module concurrently at boot.
 install -d "${ROOTFS_DIR}/etc/rpi/swap.conf.d"
 install -m 644 "${DEPLOY_DIR}/rpi-swap/10-enable-zram.conf" \
   "${ROOTFS_DIR}/etc/rpi/swap.conf.d/10-enable-zram.conf"

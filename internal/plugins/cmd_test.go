@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/jayofelony/pwnagotchi/internal/config"
@@ -104,12 +105,12 @@ version = %q
 author = %q
 license = "GPL3"
 description = "test plugin"
-os = "linux"
-arch = "arm64"
+os = %q
+arch = %q
 sha256 = %q
 executable_url = %q
 capabilities = ["Exec"]
-`, name, p.version, p.author, hex.EncodeToString(sum[:]), r.srv.URL+"/exec/"+name)
+`, name, p.version, p.author, runtime.GOOS, runtime.GOARCH, hex.EncodeToString(sum[:]), r.srv.URL+"/exec/"+name)
 		})
 		mux.HandleFunc("/exec/"+name, func(w http.ResponseWriter, req *http.Request) {
 			w.Write(p.execBin)
@@ -160,12 +161,31 @@ func TestListPluginsAvailableOnly(t *testing.T) {
 	}
 }
 
-func TestListPluginsNoneFoundReturns1(t *testing.T) {
+func TestListPluginsWithoutRepositoryStillListsBundledPlugins(t *testing.T) {
 	withTempInstallDir(t)
 	cfg := config.Map{"main": config.Map{"plugins": config.Map{}}}
 	rc := ListPlugins(cfg, false, "*")
-	if rc != 1 {
-		t.Fatalf("ListPlugins rc = %d, want 1 when nothing available/configured", rc)
+	if rc != 0 {
+		t.Fatalf("ListPlugins rc = %d, want 0 because bundled plugins are available", rc)
+	}
+}
+
+func TestUpdateValidatesConfiguredRepository(t *testing.T) {
+	repo := newFakeRepo(t, map[string]repoPlugin{
+		"available": {version: "1.0.0", author: "someone", execBin: []byte("bin")},
+	})
+	if rc := Update(testCfg(repo.srv.URL + "/index.json")); rc != 0 {
+		t.Fatalf("Update rc = %d, want valid repository", rc)
+	}
+}
+
+func TestUpdateRejectsInvalidRepository(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"index_version":999,"plugins":[]}`)
+	}))
+	t.Cleanup(srv.Close)
+	if rc := Update(testCfg(srv.URL)); rc != 1 {
+		t.Fatalf("Update rc = %d, want invalid repository failure", rc)
 	}
 }
 
@@ -233,12 +253,12 @@ version = "1.0.0"
 author = "x"
 license = "GPL3"
 description = "d"
-os = "linux"
-arch = "arm64"
+os = %q
+arch = %q
 sha256 = %q
 executable_url = %q
 capabilities = []
-`, hex.EncodeToString(sum[:]), srv.URL+"/exec/badplug")
+`, runtime.GOOS, runtime.GOARCH, hex.EncodeToString(sum[:]), srv.URL+"/exec/badplug")
 	})
 	mux.HandleFunc("/exec/badplug", func(w http.ResponseWriter, r *http.Request) {
 		w.Write(tampered) // deliberately NOT what the manifest's sha256 describes
@@ -332,6 +352,23 @@ func TestUninstallNotInstalledReturns1(t *testing.T) {
 	}
 }
 
+func TestUninstallRemovesInstallationWithCorruptManifest(t *testing.T) {
+	installDir := withTempInstallDir(t)
+	dir := filepath.Join(installDir, "broken")
+	if err := os.Mkdir(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "manifest.toml"), []byte("not toml"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if rc := Uninstall(nil, "broken"); rc != 0 {
+		t.Fatalf("Uninstall rc = %d, want corrupt installation removable", rc)
+	}
+	if _, err := os.Lstat(dir); !os.IsNotExist(err) {
+		t.Fatalf("corrupt installation still exists: %v", err)
+	}
+}
+
 func TestUpgradeInstallsNewerVersion(t *testing.T) {
 	installDir := withTempInstallDir(t)
 	repoV1 := newFakeRepo(t, map[string]repoPlugin{
@@ -381,5 +418,65 @@ func TestUpgradeSkipsWhenAlreadyLatest(t *testing.T) {
 	after, _ := os.Stat(filepath.Join(installDir, "plug", "plug"))
 	if before.ModTime() != after.ModTime() {
 		t.Fatal("expected no re-download when already at the latest version")
+	}
+}
+
+func TestInstallRejectsUnsafeNameBeforeFilesystemAccess(t *testing.T) {
+	installDir := withTempInstallDir(t)
+	cfg := config.Map{"main": config.Map{"plugins": config.Map{}}}
+	if rc := Install(cfg, filepath.Join(t.TempDir(), "config.toml"), "../outside"); rc != 1 {
+		t.Fatalf("Install rc = %d, want 1", rc)
+	}
+	if entries, err := os.ReadDir(installDir); err != nil || len(entries) != 0 {
+		t.Fatalf("unsafe name changed install directory: entries=%v err=%v", entries, err)
+	}
+}
+
+func TestUpgradeFailurePreservesInstalledVersion(t *testing.T) {
+	installDir := withTempInstallDir(t)
+	repoV1 := newFakeRepo(t, map[string]repoPlugin{
+		"stable": {version: "1.0.0", author: "x", execBin: []byte("stable-v1")},
+	})
+	cfg := testCfg(repoV1.srv.URL + "/index.json")
+	if rc := Install(cfg, filepath.Join(t.TempDir(), "config.toml"), "stable"); rc != 0 {
+		t.Fatalf("initial Install rc = %d", rc)
+	}
+
+	expected := sha256.Sum256([]byte("expected-v2"))
+	var srv *httptest.Server
+	mux := http.NewServeMux()
+	mux.HandleFunc("/index.json", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, `{"index_version":1,"plugins":[{"name":"stable","version":"2.0.0","manifest_url":%q}]}`, srv.URL+"/manifest.toml")
+	})
+	mux.HandleFunc("/manifest.toml", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, `manifest_version = 1
+name = "stable"
+version = "2.0.0"
+os = %q
+arch = %q
+sha256 = %q
+executable_url = %q
+capabilities = []
+`, runtime.GOOS, runtime.GOARCH, hex.EncodeToString(expected[:]), srv.URL+"/stable")
+	})
+	mux.HandleFunc("/stable", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("corrupt-v2"))
+	})
+	srv = httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	cfg["main"].(config.Map)["plugin_repository_index"] = srv.URL + "/index.json"
+
+	if rc := Upgrade(cfg, "stable"); rc != 1 {
+		t.Fatalf("Upgrade rc = %d, want 1", rc)
+	}
+	data, err := os.ReadFile(filepath.Join(installDir, "stable", "stable"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "stable-v1" {
+		t.Fatalf("failed upgrade replaced working executable: %q", data)
+	}
+	if got := installedManifests()["stable"].Version; got != "1.0.0" {
+		t.Fatalf("failed upgrade replaced working manifest: version=%s", got)
 	}
 }

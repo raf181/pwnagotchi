@@ -15,13 +15,12 @@ package plugins
 import (
 	"context"
 	"fmt"
-	"io"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -41,7 +40,7 @@ var PluginInstallDir = "/etc/pwnagotchi/plugins/"
 // tests point this at httptest.NewServer, never a real network call.
 var HTTPClient = &http.Client{Timeout: pluginrpc.DefaultHTTPTimeout}
 
-// bundledPluginNames are the 23 real bundled plugins now compiled
+// bundledPluginNames are the bundled plugins now compiled
 // directly into this daemon (see cmd/pwnagotchi/main.go's
 // registerNativePlugins) plus the two pre-existing native-but-special-
 // cased ones (logtail, webcfg) — installing any of these via the
@@ -80,7 +79,15 @@ func pluginsField(cfg config.Map) config.Map {
 
 // Enable mirrors plugins.cmd.enable.
 func Enable(cfg config.Map, userConfigPath, name string) int {
+	if err := pluginrpc.ValidatePluginName(name); err != nil {
+		log.Print(err)
+		return 1
+	}
 	main := mainField(cfg)
+	if main == nil {
+		main = config.Map{}
+		cfg["main"] = main
+	}
 	plugins, _ := main["plugins"].(config.Map)
 	if plugins == nil {
 		plugins = config.Map{}
@@ -92,13 +99,24 @@ func Enable(cfg config.Map, userConfigPath, name string) int {
 		plugins[name] = entry
 	}
 	entry["enabled"] = true
-	config.SaveConfig(cfg, userConfigPath)
+	if err := config.SaveConfig(cfg, userConfigPath); err != nil {
+		log.Printf("plugins: saving config: %v", err)
+		return 1
+	}
 	return 0
 }
 
 // Disable mirrors plugins.cmd.disable.
 func Disable(cfg config.Map, userConfigPath, name string) int {
+	if err := pluginrpc.ValidatePluginName(name); err != nil {
+		log.Print(err)
+		return 1
+	}
 	main := mainField(cfg)
+	if main == nil {
+		main = config.Map{}
+		cfg["main"] = main
+	}
 	plugins, _ := main["plugins"].(config.Map)
 	if plugins == nil {
 		plugins = config.Map{}
@@ -110,7 +128,10 @@ func Disable(cfg config.Map, userConfigPath, name string) int {
 		plugins[name] = entry
 	}
 	entry["enabled"] = false
-	config.SaveConfig(cfg, userConfigPath)
+	if err := config.SaveConfig(cfg, userConfigPath); err != nil {
+		log.Printf("plugins: saving config: %v", err)
+		return 1
+	}
 	return 0
 }
 
@@ -140,32 +161,6 @@ func fetchIndex(cfg config.Map) (*pluginrpc.Index, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), pluginrpc.DefaultHTTPTimeout)
 	defer cancel()
 	return pluginrpc.FetchIndex(ctx, HTTPClient, url)
-}
-
-// installedManifests scans PluginInstallDir for real, already-installed
-// third-party plugin manifests.
-func installedManifests() map[string]*pluginrpc.Manifest {
-	out := map[string]*pluginrpc.Manifest{}
-	entries, err := os.ReadDir(PluginInstallDir)
-	if err != nil {
-		return out
-	}
-	for _, e := range entries {
-		if !e.IsDir() {
-			continue
-		}
-		data, err := os.ReadFile(filepath.Join(PluginInstallDir, e.Name(), "manifest.toml"))
-		if err != nil {
-			continue
-		}
-		m, err := pluginrpc.ParseManifest(data)
-		if err != nil {
-			log.Printf("plugins: ignoring corrupt manifest for %q: %v", e.Name(), err)
-			continue
-		}
-		out[m.Name] = m
-	}
-	return out
 }
 
 // legacyPythonPluginPath reports whether a *.py file for name exists
@@ -219,7 +214,7 @@ func ListPlugins(cfg config.Map, installedOnly bool, pattern string) int {
 		}
 	}
 
-	if len(installed) == 0 && len(availableNotInstalled) == 0 {
+	if len(bundledPluginNames) == 0 && len(installed) == 0 && len(availableNotInstalled) == 0 {
 		if idx == nil && repositoryIndexURL(cfg) == "" {
 			fmt.Println("No plugin repository configured (main.plugin_repository_index is empty) and no plugins installed.")
 		} else {
@@ -229,6 +224,11 @@ func ListPlugins(cfg config.Map, installedOnly bool, pattern string) int {
 	}
 
 	maxLen := len("Plugin")
+	for name := range bundledPluginNames {
+		if len(name) > maxLen {
+			maxLen = len(name)
+		}
+	}
 	for name := range installed {
 		if len(name) > maxLen {
 			maxLen = len(name)
@@ -253,12 +253,30 @@ func ListPlugins(cfg config.Map, installedOnly bool, pattern string) int {
 	found := false
 
 	{
+		names := make([]string, 0, len(bundledPluginNames))
+		for name := range bundledPluginNames {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		for _, name := range names {
+			if !matchGlob(pattern, name) {
+				continue
+			}
+			found = true
+			fmt.Println(fmtLine(name, "built-in", pluginEnabledStatus(cfg, name), "bundled", "-"))
+		}
+	}
+
+	{
 		names := make([]string, 0, len(installed))
 		for name := range installed {
 			names = append(names, name)
 		}
 		sort.Strings(names)
 		for _, name := range names {
+			if bundledPluginNames[name] {
+				continue
+			}
 			if !matchGlob(pattern, name) {
 				continue
 			}
@@ -273,15 +291,7 @@ func ListPlugins(cfg config.Map, installedOnly bool, pattern string) int {
 					}
 				}
 			}
-			enabled := "disabled"
-			if plugins := pluginsField(cfg); plugins != nil {
-				if entry, ok := plugins[name].(config.Map); ok {
-					if e, ok := entry["enabled"].(bool); ok && e {
-						enabled = "enabled"
-					}
-				}
-			}
-			fmt.Println(fmtLine(name, m.Version, enabled, status, m.Author))
+			fmt.Println(fmtLine(name, m.Version, pluginEnabledStatus(cfg, name), status, m.Author))
 		}
 	}
 
@@ -307,6 +317,17 @@ func ListPlugins(cfg config.Map, installedOnly bool, pattern string) int {
 		return 1
 	}
 	return 0
+}
+
+func pluginEnabledStatus(cfg config.Map, name string) string {
+	if plugins := pluginsField(cfg); plugins != nil {
+		if entry, ok := plugins[name].(config.Map); ok {
+			if enabled, ok := entry["enabled"].(bool); ok && enabled {
+				return "enabled"
+			}
+		}
+	}
+	return "disabled"
 }
 
 func centerPad(s string, width int) string {
@@ -344,13 +365,19 @@ func compareVersionSlices(a, b []string) int {
 
 // Uninstall removes a real installed third-party plugin's directory
 // (manifest + executable).
-func Uninstall(cfg config.Map, name string) int {
-	installed := installedManifests()
-	if _, ok := installed[name]; !ok {
-		log.Printf("Plugin %s is not installed.", name)
+func Uninstall(_ config.Map, name string) int {
+	if err := pluginrpc.ValidatePluginName(name); err != nil {
+		log.Print(err)
 		return 1
 	}
 	dir := filepath.Join(PluginInstallDir, name)
+	if _, err := os.Lstat(dir); os.IsNotExist(err) {
+		log.Printf("Plugin %s is not installed.", name)
+		return 1
+	} else if err != nil {
+		log.Printf("plugins: inspecting %s: %v", dir, err)
+		return 1
+	}
 	if err := os.RemoveAll(dir); err != nil {
 		log.Printf("error removing %s: %v", dir, err)
 		return 1
@@ -362,7 +389,11 @@ func Uninstall(cfg config.Map, name string) int {
 // plugin by name from the configured repository index — or fails with a
 // precise, actionable message for a bundled/legacy-Python name instead
 // of ever running Python or silently treating it as loaded.
-func Install(cfg config.Map, userConfigPath, name string) int {
+func Install(cfg config.Map, _ string, name string) int {
+	if err := pluginrpc.ValidatePluginName(name); err != nil {
+		log.Print(err)
+		return 1
+	}
 	if bundledPluginNames[name] {
 		fmt.Printf("%s is a bundled plugin already compiled into this daemon — nothing to install.\n", name)
 		return 0
@@ -397,60 +428,91 @@ func Install(cfg config.Map, userConfigPath, name string) int {
 
 	ctx, cancel := context.WithTimeout(context.Background(), pluginrpc.DefaultHTTPTimeout)
 	defer cancel()
-	manifest, err := pluginrpc.FetchManifest(ctx, HTTPClient, entry.ManifestURL)
+	manifest, manifestRaw, err := pluginrpc.FetchManifestDocument(ctx, HTTPClient, entry.ManifestURL)
 	if err != nil {
 		log.Printf("error fetching manifest for %s: %v", name, err)
 		return 1
 	}
-
-	destDir := filepath.Join(PluginInstallDir, name)
-	if err := os.MkdirAll(destDir, 0o755); err != nil {
-		log.Printf("error creating %s: %v", destDir, err)
+	if manifest.Name != name {
+		log.Printf("plugins: repository entry %q returned a manifest for %q", name, manifest.Name)
 		return 1
 	}
-	execPath := filepath.Join(destDir, name)
-	if err := pluginrpc.DownloadExecutable(ctx, HTTPClient, manifest.ExecutableURL, execPath); err != nil {
-		log.Printf("error downloading %s: %v", name, err)
+	if entry.Version != manifest.Version {
+		log.Printf("plugins: repository entry %q advertises version %s but its manifest says %s", name, entry.Version, manifest.Version)
 		return 1
 	}
-	if err := manifest.VerifyExecutable(execPath); err != nil {
-		log.Printf("checksum verification failed for %s, refusing to install: %v", name, err)
-		os.RemoveAll(destDir)
+	if err := manifest.ValidateTarget(runtime.GOOS, runtime.GOARCH); err != nil {
+		log.Print(err)
 		return 1
 	}
-	manifestPath := filepath.Join(destDir, "manifest.toml")
-	if err := writeManifestFile(manifestPath, entry.ManifestURL, manifest); err != nil {
-		log.Printf("error saving manifest for %s: %v", name, err)
-		os.RemoveAll(destDir)
+	if err := installPackage(ctx, name, manifest, manifestRaw); err != nil {
+		log.Printf("plugins: installing %s: %v", name, err)
 		return 1
 	}
 
-	fmt.Printf("%s installed (restart pwnagotchi to activate).\n", name)
+	fmt.Printf("%s installed. Enable it with `sudo pwnagotchi plugins enable %s`, then restart pwnagotchi.\n", name, name)
 	return 0
 }
 
-// writeManifestFile persists the fetched manifest's raw TOML so future
-// `pwnagotchi plugins list`/`upgrade` calls don't need network access
-// just to see what's installed. Re-fetches the manifest bytes rather
-// than serializing the parsed struct, to preserve exactly what was
-// verified.
-func writeManifestFile(destPath, manifestURL string, m *pluginrpc.Manifest) error {
-	ctx, cancel := context.WithTimeout(context.Background(), pluginrpc.DefaultHTTPTimeout)
-	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, manifestURL, nil)
+func installPackage(ctx context.Context, name string, manifest *pluginrpc.Manifest, manifestRaw []byte) error {
+	if err := pluginrpc.ValidatePluginName(name); err != nil {
+		return err
+	}
+	if manifest == nil || manifest.Name != name {
+		return fmt.Errorf("manifest name does not match install name %q", name)
+	}
+	if err := os.MkdirAll(PluginInstallDir, 0o755); err != nil {
+		return err
+	}
+	stageDir, err := os.MkdirTemp(PluginInstallDir, "."+name+"-stage-")
 	if err != nil {
 		return err
 	}
-	resp, err := HTTPClient.Do(req)
-	if err != nil {
+	defer os.RemoveAll(stageDir)
+	if err := os.Chmod(stageDir, 0o755); err != nil {
 		return err
 	}
-	defer resp.Body.Close()
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
+
+	execPath := filepath.Join(stageDir, name)
+	if err := pluginrpc.DownloadExecutable(ctx, HTTPClient, manifest.ExecutableURL, execPath); err != nil {
 		return err
 	}
-	return os.WriteFile(destPath, data, 0o644)
+	if err := manifest.VerifyExecutable(execPath); err != nil {
+		return fmt.Errorf("checksum verification failed: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(stageDir, "manifest.toml"), manifestRaw, 0o644); err != nil {
+		return err
+	}
+
+	targetDir := filepath.Join(PluginInstallDir, name)
+	backupDir := ""
+	if _, err := os.Lstat(targetDir); err == nil {
+		backupDir, err = os.MkdirTemp(PluginInstallDir, "."+name+"-previous-")
+		if err != nil {
+			return err
+		}
+		if err := os.Remove(backupDir); err != nil {
+			return err
+		}
+		if err := os.Rename(targetDir, backupDir); err != nil {
+			return err
+		}
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+
+	if err := os.Rename(stageDir, targetDir); err != nil {
+		if backupDir != "" {
+			_ = os.Rename(backupDir, targetDir)
+		}
+		return err
+	}
+	if backupDir != "" {
+		if err := os.RemoveAll(backupDir); err != nil {
+			log.Printf("plugins: installed %s but could not remove previous version at %s: %v", name, backupDir, err)
+		}
+	}
+	return nil
 }
 
 // Upgrade checks every installed third-party plugin against the
@@ -470,6 +532,7 @@ func Upgrade(cfg config.Map, pattern string) int {
 		return 1
 	}
 
+	failed := false
 	for name, m := range installed {
 		if !matchGlob(pattern, name) {
 			continue
@@ -490,37 +553,29 @@ func Upgrade(cfg config.Map, pattern string) int {
 		log.Printf("Upgrading %s from %s to %s", name, m.Version, available.Version)
 		if rc := Install(cfg, "", name); rc != 0 {
 			log.Printf("error upgrading %s", name)
+			failed = true
 		}
+	}
+	if failed {
+		return 1
 	}
 	return 0
 }
 
-// checkInternet mirrors plugins.cmd._check_internet: a DNS resolution
-// check (not an HTTP request), matching Python's socket.gethostbyname exactly.
-func checkInternet() bool {
-	_, err := net.LookupHost("google.com")
-	return err == nil
-}
-
-// Update mirrors plugins.cmd.update: confirms connectivity and points
-// the user at `plugins list`, which itself fetches the live repository
-// index — there is no separate local cache to refresh in the Go-only
-// design (the old Python version downloaded+unzipped a whole repo; the
-// new index is small enough to fetch fresh every time).
+// Update validates the configured repository directly. There is no local
+// repository cache to mutate; list/search fetch the same small index live.
 func Update(cfg config.Map) int {
-	if !checkInternet() {
-		log.Print("No internet connection or DNS not working. Please follow these instructions:")
-		log.Print("https://github.com/jayofelony/pwnagotchi/wiki/Step-2-Connecting")
-		fmt.Println("No internet/DNS. Please follow these instructions:")
-		fmt.Println("https://github.com/jayofelony/pwnagotchi/wiki/Step-2-Connecting")
-		return 1
-	}
 	if repositoryIndexURL(cfg) == "" {
 		fmt.Println("No plugin repository configured. Set main.plugin_repository_index to a Go-only plugin repository index URL.")
 		return 1
 	}
-	log.Print("Internet detected - Please run sudo pwnagotchi plugins list")
-	fmt.Println("Internet detected - Please run sudo pwnagotchi plugins list")
+	idx, err := fetchIndex(cfg)
+	if err != nil {
+		log.Printf("plugins: validating repository index: %v", err)
+		fmt.Printf("Plugin repository validation failed: %v\n", err)
+		return 1
+	}
+	fmt.Printf("Plugin repository index is valid: %d plugin(s) available.\n", len(idx.Plugins))
 	return 0
 }
 
@@ -530,6 +585,10 @@ func Update(cfg config.Map) int {
 // a generated temp file path — never a shell string), same executable and
 // argument shape as Python's subprocess.call([editor, tmp.name]).
 func Edit(cfg config.Map, userConfigPath, name string) int {
+	if err := pluginrpc.ValidatePluginName(name); err != nil {
+		log.Print(err)
+		return 1
+	}
 	plugins := pluginsField(cfg)
 	if plugins == nil {
 		return 1
@@ -579,6 +638,8 @@ func Edit(cfg config.Map, userConfigPath, name string) int {
 		return 1
 	}
 	plugins[name] = newPluginsMap[name]
-	config.SaveConfig(cfg, userConfigPath)
+	if err := config.SaveConfig(cfg, userConfigPath); err != nil {
+		return 1
+	}
 	return 0
 }

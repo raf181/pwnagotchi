@@ -24,25 +24,33 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
 	"os"
-	"strconv"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/BurntSushi/toml"
 	"github.com/jayofelony/pwnagotchi/internal/config"
 	"github.com/jayofelony/pwnagotchi/internal/pluginmanager"
+	"github.com/jayofelony/pwnagotchi/internal/pluginrpc"
 )
 
-// storeHTML is the real frontend from pwnstore_ui.py's _render_store,
-// copied verbatim (not rewritten) — see store.html.
+// storeHTML is the frontend derived from pwnstore_ui.py's _render_store.
+// Its remote-store rendering uses text-only DOM nodes because plugins.json
+// is an external, untrusted input.
 //
 //go:embed store.html
 var storeHTML string
 
 const defaultStoreURL = "https://raw.githubusercontent.com/wpa-2/pwnagotchi-store/main/plugins.json"
+const maxStoreResponseBytes = 2 << 20
+const maxConfigRequestBytes = 1 << 20
+
+var configKeyPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$`)
 
 // installedPluginsDir mirrors Python's hardcoded
 // "/usr/local/share/pwnagotchi/custom-plugins" — overridable for tests.
@@ -110,21 +118,50 @@ func (p *Plugin) OnWebhook(subpath string, r *http.Request) (pluginmanager.Webho
 	path := strings.TrimPrefix(subpath, "/")
 	switch path {
 	case "", "/":
+		if r.Method != http.MethodGet {
+			return methodNotAllowed(http.MethodGet), nil
+		}
 		return p.renderStore(r), nil
 	case "api/plugins":
+		if r.Method != http.MethodGet {
+			return methodNotAllowed(http.MethodGet), nil
+		}
 		return p.getPlugins(), nil
 	case "api/installed":
+		if r.Method != http.MethodGet {
+			return methodNotAllowed(http.MethodGet), nil
+		}
 		return p.getInstalled(), nil
 	case "api/install":
+		if r.Method != http.MethodPost {
+			return methodNotAllowed(http.MethodPost), nil
+		}
 		return p.installUnsupported(r, "install"), nil
 	case "api/uninstall":
+		if r.Method != http.MethodPost {
+			return methodNotAllowed(http.MethodPost), nil
+		}
 		return p.installUnsupported(r, "uninstall"), nil
 	case "api/configure":
+		if r.Method != http.MethodPost {
+			return methodNotAllowed(http.MethodPost), nil
+		}
 		return p.configurePlugin(r), nil
 	case "api/restart":
+		if r.Method != http.MethodPost {
+			return methodNotAllowed(http.MethodPost), nil
+		}
 		return p.restartPwnagotchi(), nil
 	default:
 		return pluginmanager.WebhookResponse{Status: http.StatusNotFound, Body: []byte("Not found")}, nil
+	}
+}
+
+func methodNotAllowed(method string) pluginmanager.WebhookResponse {
+	return pluginmanager.WebhookResponse{
+		Status:  http.StatusMethodNotAllowed,
+		Headers: map[string]string{"Allow": method},
+		Body:    []byte("Method Not Allowed"),
 	}
 }
 
@@ -143,11 +180,11 @@ func (p *Plugin) renderStore(r *http.Request) pluginmanager.WebhookResponse {
 	if c, err := r.Cookie("csrf_token"); err == nil {
 		token = c.Value
 	}
-	html := strings.Replace(storeHTML, "__CSRF_TOKEN__", token, 1)
+	page := strings.Replace(storeHTML, "__CSRF_TOKEN__", html.EscapeString(token), 1)
 	return pluginmanager.WebhookResponse{
 		Status:  http.StatusOK,
 		Headers: map[string]string{"Content-Type": "text/html"},
-		Body:    []byte(html),
+		Body:    []byte(page),
 	}
 }
 
@@ -171,8 +208,11 @@ func (p *Plugin) getPlugins() pluginmanager.WebhookResponse {
 		return jsonResponse(http.StatusOK, []byte("[]"))
 	}
 	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
+	if resp.StatusCode != http.StatusOK || resp.ContentLength > maxStoreResponseBytes {
+		return jsonResponse(http.StatusOK, []byte("[]"))
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxStoreResponseBytes+1))
+	if err != nil || len(body) > maxStoreResponseBytes {
 		return jsonResponse(http.StatusOK, []byte("[]"))
 	}
 	return jsonResponse(http.StatusOK, body)
@@ -226,62 +266,84 @@ func (p *Plugin) configurePlugin(r *http.Request) pluginmanager.WebhookResponse 
 		Plugin string                 `json:"plugin"`
 		Config map[string]interface{} `json:"config"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Plugin == "" {
-		return errorResponse(fmt.Errorf("invalid request"))
+	raw, err := io.ReadAll(io.LimitReader(r.Body, maxConfigRequestBytes+1))
+	if err != nil {
+		return errorResponse(err)
+	}
+	if len(raw) > maxConfigRequestBytes {
+		return jsonErrorResponse(http.StatusRequestEntityTooLarge, fmt.Errorf("request body is too large"))
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	decoder.UseNumber()
+	if err := decoder.Decode(&body); err != nil {
+		return jsonErrorResponse(http.StatusBadRequest, fmt.Errorf("invalid request"))
+	}
+	var extra interface{}
+	if err := decoder.Decode(&extra); err != io.EOF {
+		return jsonErrorResponse(http.StatusBadRequest, fmt.Errorf("request must contain one JSON document"))
+	}
+	if err := pluginrpc.ValidatePluginName(body.Plugin); err != nil {
+		return jsonErrorResponse(http.StatusBadRequest, err)
+	}
+	for key := range body.Config {
+		if !configKeyPattern.MatchString(key) {
+			return jsonErrorResponse(http.StatusBadRequest, fmt.Errorf("invalid config key %q", key))
+		}
 	}
 
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return errorResponse(err)
 	}
-	lines := strings.Split(string(data), "\n")
-	if len(lines) > 0 && lines[len(lines)-1] == "" {
-		lines = lines[:len(lines)-1]
+	var cfg config.Map
+	if _, err := toml.Decode(string(data), &cfg); err != nil {
+		return errorResponse(err)
 	}
-
-	prefix := fmt.Sprintf("main.plugins.%s.", body.Plugin)
-	var out []string
-	for _, l := range lines {
-		if !strings.HasPrefix(strings.TrimSpace(l), prefix) {
-			out = append(out, l)
-		}
+	main, _ := cfg["main"].(config.Map)
+	if main == nil {
+		main = config.Map{}
+		cfg["main"] = main
 	}
-	out = append(out, "", fmt.Sprintf("# PwnStore Configuration: %s", body.Plugin), prefix+"enabled = true")
+	plugins, _ := main["plugins"].(config.Map)
+	if plugins == nil {
+		plugins = config.Map{}
+		main["plugins"] = plugins
+	}
+	entry := config.Map{"enabled": true}
 	for k, v := range body.Config {
 		if k == "enabled" {
 			continue
 		}
-		out = append(out, prefix+k+" = "+formatConfigValue(v))
+		entry[k] = normalizeJSONValue(v)
 	}
-
-	var buf bytes.Buffer
-	for _, l := range out {
-		buf.WriteString(l)
-		buf.WriteString("\n")
-	}
-	if err := os.WriteFile(configPath, buf.Bytes(), 0o644); err != nil {
+	plugins[body.Plugin] = entry
+	if err := config.SaveConfig(cfg, configPath); err != nil {
 		return errorResponse(err)
 	}
 	data2, _ := json.Marshal(map[string]interface{}{"success": true})
 	return jsonResponse(http.StatusOK, data2)
 }
 
-// formatConfigValue ports the exact string/bool/digit/list quoting
-// heuristic from _configure_plugin.
-func formatConfigValue(v interface{}) string {
-	s := fmt.Sprintf("%v", v)
-	s = strings.TrimSpace(s)
-	lower := strings.ToLower(s)
-	if lower == "true" || lower == "false" {
-		return lower
+func normalizeJSONValue(value interface{}) interface{} {
+	switch v := value.(type) {
+	case json.Number:
+		if n, err := v.Int64(); err == nil {
+			return n
+		}
+		if n, err := v.Float64(); err == nil {
+			return n
+		}
+	case []interface{}:
+		for i := range v {
+			v[i] = normalizeJSONValue(v[i])
+		}
+	case map[string]interface{}:
+		for key := range v {
+			v[key] = normalizeJSONValue(v[key])
+		}
 	}
-	if _, err := strconv.Atoi(s); err == nil {
-		return s
-	}
-	if strings.HasPrefix(s, "[") && strings.HasSuffix(s, "]") {
-		return s
-	}
-	return `"` + s + `"`
+	return value
 }
 
 // restartPwnagotchi ports _restart_pwnagotchi: a real, delayed,
@@ -313,8 +375,12 @@ func jsonResponse(status int, body []byte) pluginmanager.WebhookResponse {
 }
 
 func errorResponse(err error) pluginmanager.WebhookResponse {
+	return jsonErrorResponse(http.StatusInternalServerError, err)
+}
+
+func jsonErrorResponse(status int, err error) pluginmanager.WebhookResponse {
 	data, _ := json.Marshal(map[string]interface{}{"success": false, "error": err.Error()})
-	return jsonResponse(http.StatusInternalServerError, data)
+	return jsonResponse(status, data)
 }
 
 func stringField(m config.Map, key, def string) string {

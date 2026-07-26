@@ -102,10 +102,19 @@ type RouteRegistrar interface {
 	RegisterRoutes(web WebCapability)
 }
 
+// FailureReporter is implemented by isolated plugin backends that can fail
+// after OnLoad has returned, such as an out-of-process plugin executable.
+type FailureReporter interface {
+	Failed() error
+}
+
 // entry is the manager's bookkeeping for one registered plugin.
 type entry struct {
 	plugin  Plugin
 	enabled bool
+
+	lifecycleMu      sync.RWMutex
+	routesRegistered bool
 
 	queue    chan queuedEvent
 	cancel   context.CancelFunc
@@ -135,9 +144,9 @@ type Options struct {
 	Logger *log.Logger
 	// CapabilitiesFor builds the Capabilities passed to a plugin's OnLoad,
 	// given its own config sub-map. Production wires this to real agent/
-	// view/display/bettercap/grid/exec/http/clock/web capabilities; tests
-	// can hand back a minimal or fake set. If nil, plugins receive a
-	// Capabilities with only Config populated.
+	// view/exec/http/clock/GPIO/I2C/system/event capabilities; tests can
+	// hand back a minimal or fake set. If nil, plugins receive a
+	// Capabilities value with only Config populated.
 	CapabilitiesFor func(pluginName string, cfg config.Map) Capabilities
 }
 
@@ -204,17 +213,25 @@ func (m *Manager) Register(p Plugin) error {
 // (typically Manager's own LoadAll, or a web-triggered enable) decides
 // whether to treat it as fatal.
 func (m *Manager) Load(name string, pluginCfg config.Map, fullCfg config.Map) error {
-	m.mu.Lock()
+	m.mu.RLock()
 	e, ok := m.entries[name]
+	m.mu.RUnlock()
 	if !ok {
-		m.mu.Unlock()
 		return fmt.Errorf("pluginmanager: unknown plugin %q", name)
 	}
+
+	e.lifecycleMu.Lock()
+	defer e.lifecycleMu.Unlock()
+	return m.loadEntryLocked(name, e, pluginCfg, fullCfg)
+}
+
+func (m *Manager) loadEntryLocked(name string, e *entry, pluginCfg config.Map, fullCfg config.Map) error {
+	m.mu.RLock()
 	if e.enabled {
-		m.mu.Unlock()
+		m.mu.RUnlock()
 		return nil
 	}
-	m.mu.Unlock()
+	m.mu.RUnlock()
 
 	var caps Capabilities
 	if m.capsFor != nil {
@@ -234,8 +251,9 @@ func (m *Manager) Load(name string, pluginCfg config.Map, fullCfg config.Map) er
 		}
 	}
 
-	if reg, ok := e.plugin.(RouteRegistrar); ok && caps.Web != nil {
+	if reg, ok := e.plugin.(RouteRegistrar); ok && caps.Web != nil && !e.routesRegistered {
 		reg.RegisterRoutes(caps.Web)
+		e.routesRegistered = true
 	}
 
 	if handler, ok := e.plugin.(EventHandler); ok {
@@ -253,6 +271,9 @@ func (m *Manager) Load(name string, pluginCfg config.Map, fullCfg config.Map) er
 	e.enabled = true
 	e.loadedAt = time.Now()
 	m.mu.Unlock()
+	e.mu.Lock()
+	e.loadErr = nil
+	e.mu.Unlock()
 
 	m.logger.Printf("pluginmanager: loaded plugin %q", name)
 	return nil
@@ -349,12 +370,20 @@ func (m *Manager) On(event string, args ...interface{}) {
 // it to drain/exit, and calls OnUnload if implemented. Safe to call on an
 // already-unloaded or never-loaded plugin.
 func (m *Manager) Unload(name string) error {
-	m.mu.Lock()
+	m.mu.RLock()
 	e, ok := m.entries[name]
+	m.mu.RUnlock()
 	if !ok {
-		m.mu.Unlock()
 		return fmt.Errorf("pluginmanager: unknown plugin %q", name)
 	}
+
+	e.lifecycleMu.Lock()
+	defer e.lifecycleMu.Unlock()
+	return m.unloadEntryLocked(name, e)
+}
+
+func (m *Manager) unloadEntryLocked(name string, e *entry) error {
+	m.mu.Lock()
 	if !e.enabled {
 		m.mu.Unlock()
 		return nil
@@ -368,6 +397,9 @@ func (m *Manager) Unload(name string) error {
 		cancel()
 		<-done
 	}
+	e.queue = nil
+	e.cancel = nil
+	e.done = nil
 
 	var err error
 	if unloader, ok := e.plugin.(Unloader); ok {
@@ -403,20 +435,28 @@ func (m *Manager) Toggle(name string, enable bool, pluginCfg config.Map, fullCfg
 	if !ok {
 		return false, fmt.Errorf("pluginmanager: unknown plugin %q", name)
 	}
-	e.mu.Lock()
+
+	e.lifecycleMu.Lock()
+	defer e.lifecycleMu.Unlock()
+	m.mu.RLock()
 	was := e.enabled
-	e.mu.Unlock()
+	m.mu.RUnlock()
 	if enable == was {
 		return false, nil
 	}
 	if enable {
-		return true, m.Load(name, pluginCfg, fullCfg)
+		if err := m.loadEntryLocked(name, e, pluginCfg, fullCfg); err != nil {
+			return false, err
+		}
+		return true, nil
 	}
-	return true, m.Unload(name)
+	if err := m.unloadEntryLocked(name, e); err != nil {
+		return true, err
+	}
+	return true, nil
 }
 
-// Status is one plugin's observable health, for the web UI and a future
-// `pwnagotchi plugins doctor` command.
+// Status is one plugin's observable health for the web UI and diagnostics.
 type Status struct {
 	Name        string
 	Metadata    Metadata
@@ -444,6 +484,12 @@ func (m *Manager) List() []Status {
 		if e.loadErr != nil {
 			loadErr = e.loadErr.Error()
 		}
+		lastErr := e.lastErr
+		if reporter, ok := e.plugin.(FailureReporter); ok {
+			if err := reporter.Failed(); err != nil {
+				lastErr = err.Error()
+			}
+		}
 		_, hasEvents := e.plugin.(EventHandler)
 		out = append(out, Status{
 			Name:        name,
@@ -452,7 +498,7 @@ func (m *Manager) List() []Status {
 			Handled:     e.handled,
 			Dropped:     e.dropped,
 			Panics:      e.panics,
-			LastError:   e.lastErr,
+			LastError:   lastErr,
 			LoadError:   loadErr,
 			HasWebhook:  e.plugin.Metadata().HasWebhook,
 			HasEvents:   hasEvents,
@@ -471,7 +517,16 @@ func (m *Manager) Webhook(name, subpath string, r *http.Request) (WebhookRespons
 	m.mu.RLock()
 	e, ok := m.entries[name]
 	m.mu.RUnlock()
-	if !ok || !e.enabled {
+	if !ok {
+		return WebhookResponse{}, fmt.Errorf("pluginmanager: plugin %q not loaded", name)
+	}
+
+	e.lifecycleMu.RLock()
+	defer e.lifecycleMu.RUnlock()
+	m.mu.RLock()
+	enabled := e.enabled
+	m.mu.RUnlock()
+	if !enabled {
 		return WebhookResponse{}, fmt.Errorf("pluginmanager: plugin %q not loaded", name)
 	}
 	handler, ok := e.plugin.(WebhookHandler)
@@ -481,10 +536,9 @@ func (m *Manager) Webhook(name, subpath string, r *http.Request) (WebhookRespons
 	return handler.OnWebhook(subpath, r)
 }
 
-// Has reports whether name is registered with this manager at all
-// (loaded or not) — used by internal/web to decide whether a plugin route
-// should be served natively or (until fully ported) fall back to the
-// Python bridge.
+// Has reports whether name is registered with this manager at all, loaded or
+// not. The web layer uses it to distinguish native plugin routes from unknown
+// names.
 func (m *Manager) Has(name string) bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()

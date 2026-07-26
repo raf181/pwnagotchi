@@ -91,6 +91,12 @@ func (a View) OnNormal() {
 	}
 }
 
+func (a View) OnUnreadMessages(count, total int) {
+	if u, ok := a.V.(interface{ OnUnreadMessages(count, total int) }); ok {
+		u.OnUnreadMessages(count, total)
+	}
+}
+
 func (a View) Width() int {
 	if w, ok := a.V.(interface{ Width() int }); ok {
 		return w.Width()

@@ -308,6 +308,10 @@ func (s *Server) inboxSubpath(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(parts) == 2 {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			return
+		}
 		s.markMessage(w, r, id, parts[1])
 		return
 	}
@@ -316,12 +320,16 @@ func (s *Server) inboxSubpath(w http.ResponseWriter, r *http.Request) {
 
 // showMessage ports Handler.show_message.
 func (s *Server) showMessage(w http.ResponseWriter, r *http.Request, id string) {
+	idNum, err := strconv.Atoi(id)
+	if err != nil || idNum <= 0 {
+		http.Error(w, "invalid message id", http.StatusBadRequest)
+		return
+	}
 	var errMsg string
 	data := map[string]interface{}{}
 	if s.grid == nil || !s.grid.IsConnected() {
 		errMsg = "not connected"
 	} else {
-		idNum, _ := strconv.Atoi(id)
 		result, err := s.grid.InboxMessage(idNum)
 		if err != nil {
 			errMsg = err.Error()
@@ -337,7 +345,7 @@ func (s *Server) showMessage(w http.ResponseWriter, r *http.Request, id string) 
 	s.render(w, r, "message", map[string]interface{}{
 		"name":                s.name,
 		"error":               errMsg,
-		"message_id":          id,
+		"message_id":          idNum,
 		"message_sender":      data["sender"],
 		"message_sender_name": data["sender_name"],
 		"message_created_at":  data["created_at"],
@@ -349,12 +357,27 @@ func (s *Server) showMessage(w http.ResponseWriter, r *http.Request, id string) 
 
 // markMessage ports Handler.mark_message.
 func (s *Server) markMessage(w http.ResponseWriter, r *http.Request, id, mark string) {
+	if !checkCSRF(r) {
+		http.Error(w, "CSRF token missing or invalid", http.StatusForbidden)
+		return
+	}
+	idNum, err := strconv.Atoi(id)
+	if err != nil || idNum <= 0 {
+		http.Error(w, "invalid message id", http.StatusBadRequest)
+		return
+	}
+	if mark != "seen" && mark != "deleted" {
+		http.Error(w, "invalid message action", http.StatusBadRequest)
+		return
+	}
 	if s.grid == nil || !s.grid.IsConnected() {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	idNum, _ := strconv.Atoi(id)
-	s.grid.MarkMessage(idNum, mark)
+	if _, err := s.grid.MarkMessage(idNum, mark); err != nil {
+		http.Error(w, "grid request failed", http.StatusBadGateway)
+		return
+	}
 	http.Redirect(w, r, "/inbox", http.StatusFound)
 }
 

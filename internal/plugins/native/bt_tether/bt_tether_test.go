@@ -91,12 +91,6 @@ func (f *fakeView) OnNormal()          {}
 func (f *fakeView) Width() int         { return 250 }
 func (f *fakeView) Height() int        { return 122 }
 
-func (f *fakeView) get(key string) string {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	return f.values[key]
-}
-
 var _ pluginmanager.ViewCapability = (*fakeView)(nil)
 var _ pluginmanager.CommandRunner = (*fakeRunner)(nil)
 
@@ -109,11 +103,6 @@ func (c *fakeClock) Now() time.Time {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.now
-}
-func (c *fakeClock) advance(d time.Duration) {
-	c.mu.Lock()
-	c.now = c.now.Add(d)
-	c.mu.Unlock()
 }
 
 var _ pluginmanager.Clock = (*fakeClock)(nil)
@@ -320,12 +309,43 @@ func TestConnectDeviceFullFlowPairsTrustsConnectsAndBringsUpNetwork(t *testing.T
 func TestOnWebhookServesRootHTML(t *testing.T) {
 	p, _ := newTestPlugin(t, newFakeRunner(), newFakeView(), nil)
 	req := httptest.NewRequest(http.MethodGet, "/plugins/bt-tether/", nil)
+	req.AddCookie(&http.Cookie{Name: "csrf_token", Value: "test-token"})
 	resp, err := p.OnWebhook("", req)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if resp.Status != http.StatusOK || !strings.Contains(string(resp.Body), "Bluetooth Tether") {
 		t.Fatalf("unexpected root response: status=%d body-has-title=%v", resp.Status, strings.Contains(string(resp.Body), "Bluetooth Tether"))
+	}
+	if !strings.HasPrefix(string(resp.Body), "<!DOCTYPE html>") {
+		t.Fatalf("Bluetooth UI contains non-HTML wrapper text: %.40q", resp.Body)
+	}
+	if !strings.Contains(string(resp.Body), `content="test-token"`) {
+		t.Fatal("expected CSRF token in Bluetooth UI")
+	}
+	body := string(resp.Body)
+	for _, unsafe := range []string{
+		"${device.name}</b>",
+		"${connectedDevice.name}</span>",
+		"${data.ip_address}</span>",
+		"${message}</div>",
+		`onclick="pairAndConnectDevice('`,
+	} {
+		if strings.Contains(body, unsafe) {
+			t.Fatalf("Bluetooth UI contains an unsafe dynamic HTML sink %q", unsafe)
+		}
+	}
+	if !strings.Contains(body, "function escapeHTML(value)") {
+		t.Fatal("Bluetooth UI is missing its dynamic-value escaping helper")
+	}
+}
+
+func TestStateChangingWebhookRejectsGet(t *testing.T) {
+	p, _ := newTestPlugin(t, newFakeRunner(), newFakeView(), nil)
+	req := httptest.NewRequest(http.MethodGet, "/plugins/bt-tether/connect", nil)
+	resp, _ := p.OnWebhook("connect", req)
+	if resp.Status != http.StatusMethodNotAllowed || resp.Headers["Allow"] != http.MethodPost {
+		t.Fatalf("response = %+v, want POST-only", resp)
 	}
 }
 
@@ -352,7 +372,7 @@ func TestOnWebhookUnknownPathReturns404(t *testing.T) {
 
 func TestOnWebhookDisconnectRejectsInvalidMAC(t *testing.T) {
 	p, _ := newTestPlugin(t, newFakeRunner(), newFakeView(), nil)
-	req := httptest.NewRequest(http.MethodGet, "/plugins/bt-tether/disconnect?mac=not-a-mac", nil)
+	req := httptest.NewRequest(http.MethodPost, "/plugins/bt-tether/disconnect?mac=not-a-mac", nil)
 	resp, _ := p.OnWebhook("disconnect", req)
 	if !strings.Contains(string(resp.Body), `"success":false`) {
 		t.Fatalf("expected failure for invalid MAC, got %s", resp.Body)
@@ -363,7 +383,7 @@ func TestOnWebhookUnpairCallsBluetoothctlRemove(t *testing.T) {
 	runner := newFakeRunner()
 	runner.on("bluetoothctl", func(args []string) ([]byte, error) { return []byte("Device has been removed"), nil })
 	p, _ := newTestPlugin(t, runner, newFakeView(), nil)
-	req := httptest.NewRequest(http.MethodGet, "/plugins/bt-tether/unpair?mac=AA:BB:CC:DD:EE:FF", nil)
+	req := httptest.NewRequest(http.MethodPost, "/plugins/bt-tether/unpair?mac=AA:BB:CC:DD:EE:FF", nil)
 	resp, err := p.OnWebhook("unpair", req)
 	if err != nil {
 		t.Fatal(err)

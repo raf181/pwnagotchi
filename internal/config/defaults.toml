@@ -13,26 +13,23 @@ whitelist = [
     "fo:od:ba"
 ]
 confd = "/etc/pwnagotchi/conf.d/"
-custom_plugin_repos = [
-    "https://github.com/jayofelony/pwnagotchi-torch-plugins/archive/master.zip",
-    "https://github.com/Sniffleupagus/pwnagotchi_plugins/archive/master.zip",
-    "https://github.com/NeonLightning/pwny/archive/master.zip",
-    "https://github.com/marbasec/UPSLite_Plugin_1_3/archive/master.zip",
-    "https://github.com/wpa-2/Pwnagotchi-Plugins/archive/master.zip",
-    "https://github.com/cyberartemio/wardriver-pwnagotchi-plugin/archive/main.zip"
-]
+# URL of a version-1 native Go plugin repository index. Empty means that
+# only bundled and already-installed plugins are available.
+plugin_repository_index = ""
+# Legacy Python plugin directory, retained only so the CLI can identify
+# old installs and report that they require a Go port.
 custom_plugins = "/usr/local/share/pwnagotchi/custom-plugins/"
 
 [main.plugins.auto-tune]
 enabled = true
 
-[main.plugins.auto_backup] #More options availble https://github.com/wpa-2/Pwnagotchi-Plugins/blob/main/auto_backup_config.md
+[main.plugins.auto_backup] # More options: https://github.com/wpa-2/Pwnagotchi-Plugins/blob/main/auto_backup_config.md
 enabled = true
 backup_location = "/etc/pwnagotchi/backups"
 
 [main.plugins.auto-update]
 enabled = true
-install = true
+install = false # Check for releases, but require an explicit opt-in before replacing privileged binaries.
 interval = 1
 token = "" # Create a personal access token (classic) with scope set to public_repo to use the GitHub API
 
@@ -59,9 +56,6 @@ enabled = false
 speed = 19200
 device = "/dev/ttyUSB0" # for GPSD: "localhost:2947"
 
-[main.plugins.gps_listener]
-enabled = false
-
 [main.plugins.grid]
 enabled = true
 report = true
@@ -80,12 +74,6 @@ enabled = false
 api_key = "sk_your_api_key_here"
 receive_email = "yes"
 
-[main.plugins.pwndroid]
-enabled = false
-gateway = "" # leave empty unless you need a specific gateway
-display = false # show coords on display
-display_altitude = false # show altitude on display
-
 [main.plugins.pisugarx]
 enabled = false
 rotation = false
@@ -101,13 +89,6 @@ key = ""
 [main.plugins.session-stats]
 enabled = false
 save_directory = "/etc/pwnagotchi/sessions/"
-
-[main.plugins.ups_hat_c]
-enabled = false
-label_on = true  # show BAT label or just percentage
-shutdown = 5  # battery percent at which the device will turn off
-bat_x_coord = 140
-bat_y_coord = 0
 
 [main.plugins.ups_lite]
 enabled = false
@@ -207,7 +188,7 @@ position_y = 34
 [ui.web]
 enabled = true
 address = "::" # listening on both ipv4 and ipv6 - switch to 0.0.0.0 to listen on just ipv4
-auth = false
+auth = true
 username = "changeme" # if auth is true
 password = "changeme" # if auth is true
 origin = ""

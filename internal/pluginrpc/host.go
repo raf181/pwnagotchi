@@ -23,6 +23,7 @@ const (
 	defaultCallTimeout    = 10 * time.Second
 	defaultPingInterval   = 5 * time.Second
 	defaultMaxMissedPings = 3
+	maxConcurrentCalls    = 16
 )
 
 // Dispatcher executes an incoming "call" message's named capability
@@ -54,6 +55,7 @@ type Host struct {
 
 	dispatcher Dispatcher
 	logger     *log.Logger
+	callSlots  chan struct{}
 
 	callTimeout    time.Duration
 	pingInterval   time.Duration
@@ -134,6 +136,7 @@ func Spawn(name, path string, manifest *Manifest, opts Options) (*Host, error) {
 		pending:        map[int64]chan Message{},
 		dispatcher:     opts.Dispatcher,
 		logger:         logger,
+		callSlots:      make(chan struct{}, maxConcurrentCalls),
 		callTimeout:    callTimeout,
 		pingInterval:   pingInterval,
 		maxMissedPings: maxMissed,
@@ -198,7 +201,20 @@ func (h *Host) readLoop(stdout io.Reader) {
 		}
 		switch msg.Type {
 		case TypeCall:
-			go h.handleIncomingCall(msg)
+			select {
+			case h.callSlots <- struct{}{}:
+				call := msg
+				go func() {
+					defer func() { <-h.callSlots }()
+					h.handleIncomingCall(call)
+				}()
+			default:
+				h.writeMessage(Message{
+					ID:    msg.ID,
+					Type:  TypeResponse,
+					Error: fmt.Sprintf("pluginrpc: too many concurrent capability calls (max %d)", maxConcurrentCalls),
+				})
+			}
 		case TypeResponse, TypePong:
 			h.mu.Lock()
 			ch, ok := h.pending[msg.ID]

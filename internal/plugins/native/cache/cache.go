@@ -28,6 +28,7 @@ const (
 )
 
 var hostnameSanitizer = regexp.MustCompile(`[^a-zA-Z0-9]`)
+var macFilenamePattern = regexp.MustCompile(`^[A-Fa-f0-9]{12}$`)
 
 // clock is overridable for tests, matching this port's established
 // injected-clock pattern (real time.Now in production).
@@ -208,6 +209,9 @@ func (p *Plugin) writeAPCache(ap map[string]interface{}) {
 		return
 	}
 	mac = strings.ReplaceAll(mac, ":", "")
+	if !macFilenamePattern.MatchString(mac) {
+		return
+	}
 	hostname = hostnameSanitizer.ReplaceAllString(hostname, "")
 
 	data, err := json.Marshal(ap)

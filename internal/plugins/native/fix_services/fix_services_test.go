@@ -93,6 +93,8 @@ func (a *fakeAgent) Session(string) (interface{}, error) { return nil, nil }
 func (a *fakeAgent) IsModuleRunning(string) bool         { return false }
 func (a *fakeAgent) StartModule(string)                  {}
 func (a *fakeAgent) RestartModule(string)                {}
+func (a *fakeAgent) SupportedChannels() []int            { return nil }
+func (a *fakeAgent) ResetHistory()                       {}
 
 func (a *fakeAgent) snapshot() []string {
 	a.mu.Lock()

@@ -5,3 +5,4 @@
 # the daemon itself) is native Go, compiled directly into this one
 # binary (see cmd/pwnagotchi/main.go's registerNativePlugins).
 install -m 755 /opt/pwnagotchi-go /usr/bin/pwnagotchi-go
+ln -sf /usr/bin/pwnagotchi-go /usr/bin/pwnagotchi

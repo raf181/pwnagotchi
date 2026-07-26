@@ -174,7 +174,18 @@ func (a *Agent) Config() config.Map { return a.config }
 func (a *Agent) View() View { return a.view }
 
 // SupportedChannels ports Agent.supported_channels().
-func (a *Agent) SupportedChannels() []int { return a.supportedChannels }
+func (a *Agent) SupportedChannels() []int {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return append([]int(nil), a.supportedChannels...)
+}
+
+// ResetHistory clears should-interact encounter counts.
+func (a *Agent) ResetHistory() {
+	a.mu.Lock()
+	a.history = map[string]int{}
+	a.mu.Unlock()
+}
 
 // SetupEvents ports Agent.setup_events.
 func (a *Agent) SetupEvents() {

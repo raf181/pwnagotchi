@@ -181,8 +181,8 @@ func run() int {
 	}
 	logger.Info(golog.StartupBanner)
 
-	// The native plugin manager: every plugin (all 23 bundled + example,
-	// all native as of this migration) registers here, so every one gets
+	// The native plugin manager: all 24 built-in entries (23 bundled
+	// plugins plus example) register here, so every one gets
 	// a real serial per-plugin queue, panic isolation, and observable
 	// handled/dropped/panic counters. There is no Python subprocess
 	// bridge anymore — internal/pyplugin was removed once every bundled
@@ -206,6 +206,9 @@ func run() int {
 			Agent:      a,
 			View:       pluginhost.View{V: v},
 			Exec:       pluginhost.Exec{},
+			Clock:      pluginhost.Clock{},
+			GPIO:       pluginhost.GPIO{},
+			I2C:        pluginhost.I2C{},
 			System:     unitActions{view: v, mounts: unitMounts},
 			HTTPClient: &http.Client{Timeout: 30 * time.Second},
 			Emit:       pluginMgr.On,
@@ -288,6 +291,9 @@ func run() int {
 	// over `a`/`v`, so any plugin's OnLoad from this point on sees the
 	// real, fully-wired capabilities, never a nil/zero placeholder.
 	registerNativePlugins(pluginMgr, cfg, gridClient, a)
+	for _, err := range plugins.RegisterInstalled(pluginMgr) {
+		log.Printf("pluginmanager: third-party plugin: %v", err)
+	}
 	if errs := pluginMgr.LoadAll(cfg, nativePluginConfigs(cfg)); len(errs) > 0 {
 		for _, e := range errs {
 			log.Printf("pluginmanager: %v", e)
@@ -330,17 +336,13 @@ func runPluginCmd(args *cli.Args) int {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-	if _, err := golog.SetupLogging(golog.Args{Debug: args.Debug}, cfg); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 1
-	}
 
 	p := args.Plugin
 	switch p.Cmd {
 	case "update":
 		return plugins.Update(cfg)
 	case "search":
-		return plugins.ListPlugins(cfg, true, p.Pattern)
+		return plugins.ListPlugins(cfg, false, p.Pattern)
 	case "install":
 		return plugins.Install(cfg, args.UserConfig, p.Name)
 	case "uninstall":
@@ -358,10 +360,7 @@ func runPluginCmd(args *cli.Args) int {
 	case "doctor":
 		return plugins.Doctor(cfg)
 	default:
-		// Python: handle_cmd's if/elif chain falls through to `raise
-		// NotImplementedError()` when `plugins` is invoked with no
-		// sub-subcommand — an uncaught exception, exit code 1.
-		fmt.Fprintln(os.Stderr, "NotImplementedError")
+		fmt.Fprintln(os.Stderr, "unknown plugin command")
 		return 1
 	}
 }

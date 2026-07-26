@@ -1,5 +1,10 @@
 # Repository Analysis — pwnagotchi (Python, `noai` branch)
 
+> **Historical analysis.** This is the pre-port inventory and contains status
+> statements that are no longer current. Use
+> [the documentation index](README.md), [architecture](architecture.md), and
+> current source code for operational guidance.
+
 > **Historical snapshot, kept for reference.** This is the exhaustive
 > Python-codebase inventory that kicked off the migration, captured
 > 2026-07-20 at commit `a15ae8fc`, back when the Go port lived nested under

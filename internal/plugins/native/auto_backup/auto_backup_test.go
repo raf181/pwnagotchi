@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"context"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	osexec "os/exec"
@@ -305,6 +306,7 @@ func TestHandleEventIgnoresOtherEvents(t *testing.T) {
 func TestOnWebhookGetRendersStatusPage(t *testing.T) {
 	p, _, _, _ := newTestPlugin(t, config.Map{"backup_location": "/some/dir"})
 	req := httptest.NewRequest("GET", "/plugins/auto_backup/", nil)
+	req.AddCookie(&http.Cookie{Name: "csrf_token", Value: "test-token"})
 	resp, err := p.OnWebhook("", req)
 	if err != nil {
 		t.Fatal(err)
@@ -314,6 +316,20 @@ func TestOnWebhookGetRendersStatusPage(t *testing.T) {
 	}
 	if !strings.Contains(string(resp.Body), "/some/dir") {
 		t.Fatalf("expected backup location in status page, got: %s", resp.Body)
+	}
+	if !strings.Contains(string(resp.Body), `name="csrf_token" value="test-token"`) {
+		t.Fatalf("expected CSRF token in backup form, got: %s", resp.Body)
+	}
+}
+
+func TestStatusPageEscapesConfiguredPaths(t *testing.T) {
+	p, _, _, _ := newTestPlugin(t, config.Map{"backup_location": `<script>alert(1)</script>`})
+	resp, err := p.OnWebhook("", httptest.NewRequest(http.MethodGet, "/plugins/auto_backup/", nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(resp.Body), "<script>") {
+		t.Fatalf("configured path was rendered as HTML: %s", resp.Body)
 	}
 }
 

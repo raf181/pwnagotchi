@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 
 	"github.com/BurntSushi/toml"
 	"gopkg.in/yaml.v3"
@@ -364,16 +365,63 @@ func applyDropins(cfg Map, out Printf) error {
 	return nil
 }
 
-// SaveConfig mirrors utils.save_config: a plain (non-atomic) overwrite —
-// intentionally NOT routed through fs.EnsureWrite, matching the Python
-// original's own gap.
+// SaveConfig writes a complete TOML document to a sibling temporary file,
+// flushes it, and renames it over target. A serialization or write failure
+// therefore leaves the previous working config intact.
 func SaveConfig(cfg Map, target string) error {
-	f, err := os.Create(target)
+	dir := filepath.Dir(target)
+	mode := os.FileMode(0o644)
+	uid, gid := -1, -1
+	if info, err := os.Stat(target); err == nil {
+		mode = info.Mode().Perm()
+		if stat, ok := info.Sys().(*syscall.Stat_t); ok {
+			uid, gid = int(stat.Uid), int(stat.Gid)
+		}
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+
+	f, err := os.CreateTemp(dir, "."+filepath.Base(target)+".tmp-*")
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	return toml.NewEncoder(f).Encode(cfg)
+	tmpPath := f.Name()
+	defer os.Remove(tmpPath)
+	fail := func(cause error) error {
+		_ = f.Close()
+		return cause
+	}
+	if err := f.Chmod(mode); err != nil {
+		return fail(err)
+	}
+	if uid >= 0 {
+		if err := f.Chown(uid, gid); err != nil {
+			return fail(err)
+		}
+	}
+	if err := toml.NewEncoder(f).Encode(cfg); err != nil {
+		return fail(err)
+	}
+	if err := f.Sync(); err != nil {
+		return fail(err)
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmpPath, target); err != nil {
+		return err
+	}
+	if dirHandle, err := os.Open(dir); err == nil {
+		syncErr := dirHandle.Sync()
+		closeErr := dirHandle.Close()
+		if syncErr != nil {
+			return syncErr
+		}
+		if closeErr != nil {
+			return closeErr
+		}
+	}
+	return nil
 }
 
 // DigFloat looks up a nested numeric config value (TOML integers decode as

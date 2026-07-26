@@ -34,6 +34,12 @@ func getCSRFCookie(t *testing.T, mux http.Handler) *http.Cookie {
 	mux.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/", nil))
 	for _, c := range rr.Result().Cookies() {
 		if c.Name == csrfCookieName {
+			if !c.HttpOnly {
+				t.Fatal("CSRF cookie must be HttpOnly")
+			}
+			if c.SameSite != http.SameSiteStrictMode {
+				t.Fatalf("CSRF cookie SameSite = %v, want Strict", c.SameSite)
+			}
 			return c
 		}
 	}

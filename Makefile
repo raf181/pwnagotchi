@@ -7,7 +7,7 @@ build:
 	$(GO) build $(PKG)
 
 fmt:
-	gofmt -w .
+	$(GO) fmt $(PKG)
 
 vet:
 	$(GO) vet $(PKG)

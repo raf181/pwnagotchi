@@ -27,8 +27,8 @@ gettext-suite utility, not Python tooling, so using it here doesn't
 reintroduce a Python dependency into the Go build/runtime):
 
 ```sh
-msgfmt go-port/locale-src/<lang>/LC_MESSAGES/voice.po \
-  -o go-port/internal/voice/locale/<lang>/LC_MESSAGES/voice.mo
+msgfmt locale-src/<lang>/LC_MESSAGES/voice.po \
+  -o internal/voice/locale/<lang>/LC_MESSAGES/voice.mo
 ```
 
 `internal/voice`'s own tests (`TestEveryEmbeddedCatalogLoads` in
@@ -39,7 +39,7 @@ the real `gotext` catalog loader used at runtime — run
 ## Adding a new language
 
 1. Add `<lang>/LC_MESSAGES/voice.po` here, translated from `voice.pot`.
-2. Compile it to `go-port/internal/voice/locale/<lang>/LC_MESSAGES/voice.mo`
+2. Compile it to `internal/voice/locale/<lang>/LC_MESSAGES/voice.mo`
    with `msgfmt` as above.
 3. Run `go test ./internal/voice/...` — the catalog-count/loadability test
    will pick up the new language automatically (no code changes needed;

@@ -117,3 +117,6 @@ sed -i "s/127.0.1.1.*/127.0.1.1\tpwnagotchi/" /etc/hosts
 if ! grep -q "^dtoverlay=dwc2,dr_mode=peripheral$" /boot/firmware/config.txt; then
   printf '\n[all]\ndtoverlay=dwc2,dr_mode=peripheral\n' >> /boot/firmware/config.txt
 fi
+if ! grep -q "^dtparam=i2c_arm=on$" /boot/firmware/config.txt; then
+  printf '\n[all]\ndtparam=i2c_arm=on\n' >> /boot/firmware/config.txt
+fi

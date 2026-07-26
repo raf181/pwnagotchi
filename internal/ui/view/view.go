@@ -136,10 +136,8 @@ func New(cfg config.Map, impl hw.Driver, initial map[string]interface{}, emit Ev
 
 	v.buildInitialState(uiCfg)
 
-	if initial != nil {
-		for k, val := range initial {
-			v.state.Set(k, val)
-		}
+	for k, val := range initial {
+		v.state.Set(k, val)
 	}
 
 	v.emit.On("ui_setup", v)

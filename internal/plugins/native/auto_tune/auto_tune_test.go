@@ -4,24 +4,22 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/jayofelony/pwnagotchi/internal/config"
 	"github.com/jayofelony/pwnagotchi/internal/pluginmanager"
 )
 
-type fakeClock struct{ now time.Time }
-
-func (c *fakeClock) Now() time.Time { return c.now }
-
 type recordedRun struct{ cmd string }
 
 type fakeAgent struct {
-	mu   sync.Mutex
-	runs []recordedRun
+	mu       sync.Mutex
+	runs     []recordedRun
+	channels []int
+	reset    bool
 }
 
 func (f *fakeAgent) Run(cmd string, verbose bool) (interface{}, error) {
@@ -34,6 +32,16 @@ func (f *fakeAgent) Session(string) (interface{}, error) { return nil, nil }
 func (f *fakeAgent) IsModuleRunning(string) bool         { return false }
 func (f *fakeAgent) StartModule(string)                  {}
 func (f *fakeAgent) RestartModule(string)                {}
+func (f *fakeAgent) SupportedChannels() []int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]int(nil), f.channels...)
+}
+func (f *fakeAgent) ResetHistory() {
+	f.mu.Lock()
+	f.reset = true
+	f.mu.Unlock()
+}
 func (f *fakeAgent) snapshot() []recordedRun {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -50,6 +58,7 @@ func newTestPlugin(t *testing.T) (*Plugin, *fakeAgent) {
 	t.Helper()
 	p := New()
 	p.presetsDir = t.TempDir()
+	p.configPath = filepath.Join(t.TempDir(), "config.toml")
 	agent := &fakeAgent{}
 	if err := p.OnLoad(pluginmanager.Capabilities{Config: config.Map{}, Agent: agent}); err != nil {
 		t.Fatal(err)
@@ -258,6 +267,12 @@ func TestOnReadyRunsResetCommandsWhenEnabled(t *testing.T) {
 	if len(runs) != 2 || runs[0].cmd != "wifi.recon clear" || runs[1].cmd != "wifi.clear" {
 		t.Fatalf("unexpected Run calls: %+v", runs)
 	}
+	agent.mu.Lock()
+	reset := agent.reset
+	agent.mu.Unlock()
+	if !reset {
+		t.Fatal("expected in-process interaction history to be reset")
+	}
 }
 
 func TestOnReadyNoOpWhenResetHistoryDisabled(t *testing.T) {
@@ -266,6 +281,11 @@ func TestOnReadyNoOpWhenResetHistoryDisabled(t *testing.T) {
 	p.HandleEvent("ready", nil)
 	if len(agent.snapshot()) != 0 {
 		t.Fatal("expected no Run calls when reset_history is disabled")
+	}
+	agent.mu.Lock()
+	defer agent.mu.Unlock()
+	if agent.reset {
+		t.Fatal("expected no history reset when reset_history is disabled")
 	}
 }
 
@@ -340,6 +360,7 @@ func TestOnWebhookGetRendersHistogramAndChistos(t *testing.T) {
 	p.HandleEvent("wifi_update", []interface{}{nil, []map[string]interface{}{ap("a", "AA:AA:AA:AA:AA:AA", 6)}})
 
 	req := httptest.NewRequest(http.MethodGet, "/plugins/auto-tune/", nil)
+	req.AddCookie(&http.Cookie{Name: "csrf_token", Value: "test-token"})
 	resp, err := p.OnWebhook("", req)
 	if err != nil {
 		t.Fatal(err)
@@ -347,6 +368,22 @@ func TestOnWebhookGetRendersHistogramAndChistos(t *testing.T) {
 	body := string(resp.Body)
 	if !strings.Contains(body, "AUTO Tune") || !strings.Contains(body, "Channel Statistics") {
 		t.Fatalf("unexpected body: %s", body)
+	}
+	if !strings.Contains(body, `name="csrf_token" value="test-token"`) {
+		t.Fatalf("expected CSRF token in form: %s", body)
+	}
+}
+
+func TestPresetNamesCannotEscapePresetDirectory(t *testing.T) {
+	p, _ := newTestPlugin(t)
+	if err := p.savePreset("../outside"); err == nil {
+		t.Fatal("expected traversal preset name to be rejected")
+	}
+	if ok, _ := p.loadPreset("../outside"); ok {
+		t.Fatal("expected traversal preset load to be rejected")
+	}
+	if p.deletePreset("../outside") {
+		t.Fatal("expected traversal preset delete to be rejected")
 	}
 }
 
@@ -357,6 +394,7 @@ func TestOnWebhookPostUpdateAppliesPersonalityEdit(t *testing.T) {
 
 	form := url.Values{
 		"newval,3,max_interactions,int": {"10"},
+		"newval,15,extra_channels,int":  {"7"},
 	}
 	req := httptest.NewRequest(http.MethodPost, "/plugins/auto-tune/update", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -368,8 +406,24 @@ func TestOnWebhookPostUpdateAppliesPersonalityEdit(t *testing.T) {
 	if personality["max_interactions"] != 10 {
 		t.Fatalf("expected max_interactions updated to 10, got %v", personality["max_interactions"])
 	}
+	if p.opts.ExtraChannels != 7 {
+		t.Fatalf("expected extra_channels updated to 7, got %d", p.opts.ExtraChannels)
+	}
 	if !strings.Contains(string(resp.Body), "max_interactions") {
 		t.Fatalf("expected change log in response body: %s", resp.Body)
+	}
+
+	saved, err := config.LoadTOMLFileForEdit(p.configPath)
+	if err != nil {
+		t.Fatalf("load saved config: %v", err)
+	}
+	if got := saved["personality"].(config.Map)["max_interactions"]; got != int64(10) {
+		t.Fatalf("saved personality.max_interactions = %v, want 10", got)
+	}
+	plugins := saved["main"].(config.Map)["plugins"].(config.Map)
+	autoTune := plugins[p.Name()].(config.Map)
+	if got := autoTune["extra_channels"]; got != int64(7) {
+		t.Fatalf("saved plugin extra_channels = %v, want 7", got)
 	}
 }
 

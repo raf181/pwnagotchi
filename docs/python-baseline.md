@@ -1,5 +1,10 @@
 # Python Baseline (behavioral oracle)
 
+> **Historical reference.** This captures the Python implementation used
+> during migration. Python is not executed by the current daemon. Use
+> [the documentation index](README.md) and
+> [known differences](known-differences.md) for current behavior.
+
 > **Update (this session): the Python plugin bridge has been fully
 > removed.** All 23 bundled plugins + `example.py` are now native Go
 > (see `docs/migration-ledger.md`). This document is a historical

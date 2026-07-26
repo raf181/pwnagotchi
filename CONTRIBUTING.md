@@ -1,71 +1,97 @@
-## Contributing
+# Contributing
 
-### Guidelines
+## Before Starting
 
-Here are a few guidelines for contributing:
+Open an issue for behavior changes, new hardware support, protocol changes, or
+new built-in plugins. Keep fixes and refactors separate so each change has a
+clear test surface.
 
-* If you would like to contribute to the codebase **please raise an issue to propose the change**
-* Do not mix feature changes or fixes with refactoring - it makes the code harder to review and means there is more for the maintainers (with limited time) to test
+Use Go 1.25 or newer. Do not add a Python runtime dependency or restore the
+removed Python plugin bridge.
 
-* If you have found a bug please raise an issue and fill out the whole template.
-* If the documentation can be improved / translated etc please raise an issue to discuss.
-* Please always provide a summary of what you changed, how you did it and how it can be tested.
+## Development Workflow
 
-### License
-
-This project is licensed under the GPL3 License.
-
-#### Sign your work
-
-The sign-off is a simple line at the end of the explanation for a patch. Your
-signature certifies that you wrote the patch or otherwise have the right to pass
-it on as an open-source patch. The rules are pretty simple: if you can certify
-the below (from [developercertificate.org](http://developercertificate.org/)):
-
-```
-Developer Certificate of Origin
-Version 1.1
-
-Copyright (C) 2004, 2006 The Linux Foundation and its contributors.
-1 Letterman Drive
-Suite D4700
-San Francisco, CA, 94129
-
-Everyone is permitted to copy and distribute verbatim copies of this
-license document, but changing it is not allowed.
-
-Developer's Certificate of Origin 1.1
-
-By making a contribution to this project, I certify that:
-
-(a) The contribution was created in whole or in part by me and I
-    have the right to submit it under the open source license
-    indicated in the file; or
-
-(b) The contribution is based upon previous work that, to the best
-    of my knowledge, is covered under an appropriate open source
-    license and I have the right under that license to submit that
-    work with modifications, whether created in whole or in part
-    by me, under the same open source license (unless I am
-    permitted to submit under a different license), as indicated
-    in the file; or
-
-(c) The contribution was provided directly to me by some other
-    person who certified (a), (b) or (c) and I have not modified
-    it.
-
-(d) I understand and agree that this project and the contribution
-    are public and that a record of the contribution (including all
-    personal information I submit with it, including my sign-off) is
-    maintained indefinitely and may be redistributed consistent with
-    this project or the open source license(s) involved.
+```sh
+go mod download
+go fmt ./...
+go test ./...
+go test -race ./...
+go vet ./...
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 \
+  go build -trimpath -o /tmp/pwnagotchi-go ./cmd/pwnagotchi
 ```
 
-Then you just add a line to every git commit message:
+Before submitting:
 
-    Signed-off-by: Joe Smith <joe.smith@email.com>
+- Add focused tests for new behavior and failure paths.
+- Use existing capability interfaces and injectable runners/clients/clocks.
+- Avoid shell command strings unless the configuration explicitly represents a
+  shell program.
+- Bound network responses, request bodies, queues, and subprocess waits.
+- Validate names and paths before filesystem operations.
+- Preserve unrelated user/config changes when writing files.
+- Update current documentation when behavior, config, CLI, deployment, plugin
+  APIs, or hardware status changes.
+- Keep `internal/config/defaults.toml` and `pwnagotchi/defaults.toml`
+  byte-identical.
 
-If you set your `user.name` and `user.email` git configs, you can sign your
-commit automatically with `git commit -s`.
+Hardware tests must be opt-in and document the exact model, wiring, kernel,
+driver, and commands used. Never include reboot, shutdown, hostname changes,
+radio disruption, or destructive bus operations in the default test suite.
 
-* Please sign your commits with `git commit -s` so that commits are traceable.
+## Plugin Changes
+
+Read:
+
+- `docs/plugin-development.md`
+- `docs/plugin-repository.md`
+- `docs/plugin-compatibility-matrix.md`
+
+Third-party examples must import `github.com/jayofelony/pwnagotchi/pkg/plugin`,
+not an `internal` package. New RPC methods require manifest validation,
+dispatcher implementation, public SDK coverage, protocol tests, limits, and
+documentation.
+
+New built-in plugins require:
+
+- a unique validated name
+- registration in `registerNativePlugins`
+- synchronized defaults when configuration is needed
+- lifecycle cleanup
+- capability fakes and focused tests
+- CSRF/method/input validation for webhooks
+- an entry in the compatibility matrix
+
+## Pull Requests
+
+Include:
+
+- what changed and why
+- user-visible and compatibility effects
+- exact validation commands and results
+- hardware evidence when relevant
+- security implications
+- known gaps that remain
+
+Do not claim hardware support based only on mocks. Do not claim authenticity
+from a checksum; checksums are integrity checks, not signatures.
+
+## Developer Certificate of Origin
+
+Contributions must comply with the
+[Developer Certificate of Origin 1.1](https://developercertificate.org/).
+Sign each commit:
+
+```text
+Signed-off-by: Your Name <you@example.com>
+```
+
+Git can add the line automatically:
+
+```sh
+git commit -s
+```
+
+## License
+
+Contributions are licensed under GPL-3.0, consistent with `LICENSE.md`.

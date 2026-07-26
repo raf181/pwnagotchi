@@ -37,6 +37,7 @@ func FreqToChannel(freq int) (int, error) {
 	case freq >= 5925 && freq <= 7125:
 		return int(((f - 5950) / 20) + 11), nil
 	default:
+		//lint:ignore ST1005 Preserve the Python-compatible error text.
 		return 0, fmt.Errorf("The frequency %d MHz is not a valid Wi-Fi frequency.", freq)
 	}
 }

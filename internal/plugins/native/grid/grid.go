@@ -5,29 +5,19 @@
 // Original Python author: evilsocket@gmail.com (see grid.py's own
 // __author__ field, left untouched). This Go port is by raf181.
 //
-// CAPABILITY GAP (documented, not fixed here — flagged for the
-// coordinating conversation): pluginmanager.GridCapability
+// pluginmanager.GridCapability
 // (Report/MemoryGet/MemorySet) does not match the real, already-ported
 // internal/grid.Client's actual API (ReportAP/Inbox/UpdateData) at all —
-// they appear to have been designed independently. Rather than force a
-// mismatch, this plugin defines its own narrow GridClient interface
+// the two were designed independently. Rather than force a mismatch,
+// this plugin defines its own narrow GridClient interface
 // (below) that the real *grid.Client already satisfies structurally, and
 // expects to be constructed with one directly (mirroring
 // internal/wpasec's cfg-in-constructor pattern) rather than receiving it
-// via Capabilities.Grid. The coordinating main.go wiring should pass the
-// daemon's real, already-constructed *grid.Client here.
+// via Capabilities.Grid. main.go passes the daemon's real,
+// already-constructed *grid.Client here.
 //
-// Two further gaps found while porting, both left as clear, logged
-// behavior rather than silently dropped:
-//  1. grid.py's check_inbox calls `plugins.on('unread_inbox', unread)` to
-//     broadcast a new event to every OTHER loaded plugin. No
-//     pluginmanager capability currently lets a plugin emit an event back
-//     into the manager (Capabilities only lets a plugin RECEIVE events) —
-//     this port logs the unread count instead of broadcasting.
-//  2. grid.py's check_inbox also calls `agent.view().on_unread_messages(...)`.
-//     pluginmanager.ViewCapability has no OnUnreadMessages method — this
-//     port logs instead of updating the view.
-//  3. grid.py's on_internet_available passes `agent.last_session` (real
+// One API mismatch remains constructor-injected:
+//  1. grid.py's on_internet_available passes `agent.last_session` (real
 //     Python: pwnagotchi.log.LastSession, the daemon's own running
 //     session statistics) to grid.update_data — pluginmanager.
 //     AgentCapability exposes bettercap's session() (wifi/AP state), not
@@ -98,6 +88,10 @@ type GridClient interface {
 	UpdateData(cfg config.Map, session realgrid.SessionSummary) error
 }
 
+type unreadMessageView interface {
+	OnUnreadMessages(count, total int)
+}
+
 // Plugin ports the Grid class.
 type Plugin struct {
 	mu sync.Mutex
@@ -105,6 +99,8 @@ type Plugin struct {
 	client         GridClient
 	sessionSummary func() realgrid.SessionSummary
 	log            pluginmanager.Logger
+	emit           func(event string, args ...interface{})
+	unreadView     unreadMessageView
 	fullCfg        config.Map
 	reportEnabled  bool
 	whitelist      []string
@@ -138,6 +134,8 @@ func (p *Plugin) Metadata() pluginmanager.Metadata {
 func (p *Plugin) OnLoad(caps pluginmanager.Capabilities) error {
 	p.mu.Lock()
 	p.log = caps.Log
+	p.emit = caps.Emit
+	p.unreadView, _ = caps.View.(unreadMessageView)
 	p.mu.Unlock()
 	return nil
 }
@@ -345,10 +343,16 @@ func (p *Plugin) checkInbox() {
 	}
 	p.mu.Lock()
 	p.unreadMessages, p.totalMessages = unread, total
+	emit := p.emit
+	view := p.unreadView
 	p.mu.Unlock()
 	if unread > 0 {
-		// See package doc comment gap #1/#2: no broadcast-emit or
-		// OnUnreadMessages capability exists yet; logged instead.
+		if emit != nil {
+			emit("unread_inbox", unread)
+		}
+		if view != nil {
+			view.OnUnreadMessages(unread, total)
+		}
 		p.logf("unread:%d total:%d", unread, total)
 	}
 }

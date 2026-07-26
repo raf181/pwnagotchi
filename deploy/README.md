@@ -1,191 +1,247 @@
-# Deploying the Go port to a Raspberry Pi (Pi Zero 2 W)
+# Raspberry Pi Deployment
 
-This directory + `.github/workflows/build-pi-image.yml` build a flashable
-Raspberry Pi OS Lite (64-bit/arm64) image with the Go `pwnagotchi` daemon,
-`bettercap`, and `pwngrid` pre-installed, their systemd services enabled,
-and the web UI reachable on first boot.
+The deployment target is Raspberry Pi OS Lite 64-bit on a Pi Zero 2 W. The
+image contains the static Go daemon, bettercap, pwngrid-peer, launch scripts,
+systemd units, USB gadget networking, and optional Nexmon components.
 
-## Status — read this before flashing anything
+Read the security and hardware limitations before flashing or updating a unit.
 
-**This pipeline has not been run end-to-end and the resulting image has
-not been booted on real Pi Zero 2 W hardware.** Everything here was
-built by:
+## Live Device Audit
 
-- Reading pi-gen's actual current documentation/source
-  (`RPi-Distro/pi-gen`, `arm64` branch) rather than guessing its
-  conventions.
-- Recovering and adapting the original pwnagotchi project's own
-  pi-gen-based image-build scripts (deleted from this repo in the "Make
-  the Go port primary" commit, recovered from git history:
-  `git show a15ae8fc:stage3/...`) as reference for what a real, working
-  systemd/launcher-script setup looks like.
-- Verifying the two riskiest technical assumptions **directly, locally**
-  before writing any of the CI/build files around them:
-  - The Go daemon's own binary cross-compiles cleanly for `linux/arm64` with
-    zero special setup (`CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build`
-    — confirmed, produces a real ARM64 ELF binary).
-  - `bettercap` does **not** — verified directly that a plain
-    cross-compile from x86_64 fails (`gopacket/pcap` and `google/gousb`
-    are real CGO dependencies, needing the target arch's real
-    `libpcap-dev`/`libusb-1.0-0-dev`), which is why `01-build-bettercap`
-    builds it **natively inside the pi-gen arm64 chroot** instead —
-    matching what the original project's own now-deleted build scripts
-    already did, for the same reason.
-  - `pwngrid` **does** ship real prebuilt `linux/arm64` release binaries
-    (verified against its actual GitHub Releases API) — no build needed,
-    just a checksum-verified download. Its release `.sha256` files are
-    BSD-style (`SHA256(pwngrid)= <hash>`), NOT GNU coreutils format —
-    verified directly, `02-install-pwngrid` parses accordingly.
-  - `bettercap`'s own releases have **no** Linux ARM binaries at all in
-    recent versions (verified: only `darwin_arm64`/`linux_amd64`/
-    `windows_amd64` assets exist) — confirming the native-build choice
-    above isn't optional.
+A Pi Zero 2 W at `10.12.194.1` was inspected on 2026-07-26:
 
-What is **not** verified: whether a full `pi-gen` run actually completes
-successfully end-to-end inside GitHub Actions (disk space, build time,
-and QEMU/binfmt reliability in a hosted runner are all real, known pain
-points for pi-gen-in-CI setups generally, not specific claims about this
-one), and whether the resulting image actually boots and runs correctly
-on real hardware. **Treat the first real workflow run as a test, not a
-release** — trigger it (`workflow_dispatch`), watch it, fix whatever
-breaks, and only then trust its artifact.
+- `pwnagotchi`, `bettercap`, and `pwngrid-peer` services were active.
+- The daemon ran as `root`, arm64, with CGO disabled and about 24 MiB RSS.
+- The installed daemon reported version `2.9.5.5`, Go `1.26.5`, and build
+  commit `bc0feaa2cfa190a1608bb3a01776b45b3cb1044f+dirty`.
+- The inspected source checkout was newer. Changes in the current tree are not
+  on that Pi until a new binary is deliberately built and deployed.
+- `/usr/bin/pwnagotchi-go` existed, but `/usr/bin/pwnagotchi` did not. The
+  updated image stage now creates the symlink.
+- `plugins doctor` passed all 24 built-in entries, but the older CLI did not
+  support useful bare `plugins --help` behavior and did not list built-ins
+  clearly. The current source fixes both.
+- The web server listened broadly with authentication disabled.
+- The SSH account still used a known image-default password.
+- Waveshare V4 rendering produced repeated unsupported-driver errors until the
+  display was disabled.
+- `/sys/class/gpio` and `/dev/gpiochip0` existed. `/dev/i2c-*` did not because
+  I2C was not enabled in that deployed image.
 
-## WiFi monitor mode / nexmon — a real, disclosed gap
+Treat the inspected device as an older deployment, not proof that un-deployed
+source changes work on hardware.
 
-The original pwnagotchi image patches the Raspberry Pi's onboard
-Broadcom/Cypress WiFi driver with **nexmon** to get real monitor-mode
-frame injection — this was `stage3/04-nexmon/` in the deleted image-build
-scripts: a kernel-module patch built against a specific kernel version,
-genuinely one of the most fragile, hardware/firmware-version-specific
-parts of the entire original build.
+## First-Boot Security
 
-**This pipeline does not attempt to rebuild that, and the gap is now
-confirmed on real hardware, not just theoretical.** A built image was
-flashed and booted on an actual Pi Zero 2 W: `iw phy info` for the
-onboard chip (a Broadcom BCM43430/1, stock non-nexmon firmware
-`brcmfmac43430-sdio`) lists its supported interface modes as `IBSS,
-managed, AP, P2P-client, P2P-GO, P2P-device` — **monitor is not in that
-list at all**. `iw phy <phy> interface add wlan0mon type monitor` fails
-outright with `Operation not supported (-95)`; this is cfg80211
-rejecting the request before it ever reaches the driver, not a
-config/permissions issue. Two independent, unrelated bugs were also
-found and fixed along the way (both real prerequisites, neither
-sufficient by itself to create monitor mode on this chip):
+The web UI can execute host actions and edit configuration. Before placing the
+unit on any shared network:
 
-- `reload_brcm`'s `modprobe -r brcmfmac` always failed with "Module
-  brcmfmac is in use" — this kernel splits the onboard chip's driver
-  into `brcmfmac` + a chip-specific companion module (`brcmfmac_cyw`
-  for the Cypress-family chip on the Pi Zero 2 W) that depends on it;
-  the dependent has to be removed first. Fixed by reading `/proc/modules`
-  for whatever's actually listed as using `brcmfmac` and removing those
-  first, rather than hardcoding `brcmfmac_cyw`.
-- NetworkManager manages `wlan0` by default and keeps a handle on it even
-  while disconnected, and a separate standalone `wpa_supplicant.service`
-  (independent of NetworkManager) held it too — either alone was enough
-  to block the reload. Fixed at image-build time: an
-  `unmanaged-devices=interface-name:wlan0` NetworkManager conf.d drop-in
-  (`deploy/network-manager/99-unmanaged-wlan0.conf`), and
-  `systemctl mask wpa_supplicant.service` in `05-configure-services`.
+1. Change the SSH password:
 
-`pwnlib`'s `select_wifi_iface` now prefers a real external USB WiFi
-adapter over the onboard chip whenever one is plugged in (detected by
-driver name — anything not `brcmfmac` — not by interface name, since
-that varies by adapter/udev), and falls back to the onboard chip
-otherwise. Most monitor-capable USB chipsets switch their one real
-interface's type directly (no second virtual interface, unlike
-`brcmfmac`'s AP/managed/IBSS/P2P-only virtual-interface support), which
-`start_monitor_interface`/`stop_monitor_interface` now handle as a
-separate code path. The onboard-chip path is deliberately kept working,
-not stubbed out, so it becomes a real capability — not just
-architecturally ready for one — the moment this image gains nexmon
-support. Options for getting there, not attempted here:
+   ```sh
+   passwd
+   ```
 
-- Use a USB WiFi adapter with a chipset that supports monitor mode +
-  injection natively (no nexmon needed) — this is the preferred path
-  automatically whenever one is present, and needs nothing further.
-- **On the `fix-internal-antenna` branch**: `pi-gen-stage/06-nexmon`
-  installs prebuilt nexmon-patched firmware + a DKMS-packaged
-  nexmon-patched `brcmfmac` module for this exact chip (BCM43430A1),
-  ported from the original (pre-Go-port) image's
-  `stage3/04-nexmon/01-run-chroot.sh`. This has a real, disclosed,
-  **unverified** risk: it builds the DKMS module inside a QEMU-emulated
-  chroot on the build host, and DKMS's default `uname -r`-based kernel
-  targeting could pick the *build host's* kernel instead of the target's
-  installed `linux-image-rpi-v8`/`rpi-2712` kernel — whether the
-  package's postinst actually targets the right one instead is something
-  only a real build + boot test can confirm, not something this comment
-  guarantees.
+2. Install an SSH public key, verify key login, then disable password login in
+   `sshd_config`.
+3. Enable web auth and replace the placeholder credentials:
 
-## Architecture
+   ```toml
+   [ui.web]
+   enabled = true
+   address = "10.12.194.1"
+   auth = true
+   username = "admin"
+   password = "replace-with-a-long-unique-password"
+   ```
 
-```
-.github/workflows/build-pi-image.yml
-  build-pwnagotchi   — cross-compiles the Go daemon for linux/arm64 (fast, no QEMU)
-  build-image        — runs pi-gen (arm64 branch) with a custom stage:
+4. Restrict the UI to the USB gadget or a trusted management network.
+5. Never expose ports `8080` or `8081` directly to the public internet.
+6. Review enabled plugins. `auto-update`, service repair, config editors, and
+   system-action plugins run with root privileges on this image.
 
-deploy/
-  pi-gen-stage/
-    00-install-golang/    — installs a native Go toolchain INSIDE the arm64 chroot
-    01-build-bettercap/   — builds real bettercap from source, natively (see Status)
-    02-install-pwngrid/   — downloads + checksum-verifies the real prebuilt pwngrid
-    03-install-caplets/   — installs the real bettercap/caplets (pwnagotchi-auto.cap etc.)
-    04-install-pwnagotchi/ — copies in the pre-cross-compiled Go binary only (no Python
-                              package, no plugin bridge — see "No Python in the image" below)
-    05-configure-services/ — installs systemd units + launcher scripts, enables services,
-                              sets hostname (see below for why that specifically matters)
-    06-nexmon/              — (fix-internal-antenna branch only) nexmon for the onboard chip,
-                              see "WiFi monitor mode / nexmon" above for the disclosed risk
-  systemd/                — pwnagotchi.service, bettercap.service, pwngrid-peer.service
-  scripts/                — pwnlib, pwnagotchi-launcher, bettercap-launcher, monstart, monstop
+The packaged auto-update plugin performs release checks but has
+`install = false`. Enabling installation permits checksum-verified
+bettercap/pwngrid replacement as root. Pwnagotchi daemon releases are
+report-only and must use the explicit binary or image update procedure below.
+
+The daemon logs a warning when web auth is disabled or placeholder credentials
+remain.
+
+## USB Gadget Network
+
+The preferred NetworkManager profile configures the Pi as:
+
+```text
+10.12.194.1/28
 ```
 
-### Why the image sets `/etc/hostname` to `pwnagotchi` at build time
+NetworkManager shared mode supplies a DHCP lease to the connected host. A
+secondary client profile is available when another device supplies DHCP. The
+Pi Zero 2 W data/OTG port must be connected with a data-capable cable.
 
-Earlier investigation in this migration (see `docs/migration-ledger.md`'s
-reboot incident note) found that `internal/unit.SetName` — ported
-faithfully from real `pwnagotchi.set_name()` — reboots the unit the
-*first* time it detects `/etc/hostname` doesn't match the configured
-`main.name` (default: `"pwnagotchi"`). A freshly-flashed Raspberry Pi OS
-image's default hostname is `raspberrypi`, not `pwnagotchi` — without
-this, a real unit's very first boot would silently reboot itself once,
-which is confusing for a first-time operator even though it's real,
-faithful, intentional Python-parity behavior, not a bug. Setting it
-correctly at image-build time avoids that surprise.
+Typical checks:
 
-### No Python in the image
+```sh
+ip address show usb0
+nmcli connection show --active
+ping 10.12.194.1
+ssh pi@10.12.194.1
+```
 
-As of this migration, all 23 bundled plugins (plus the daemon itself)
-are native Go, compiled directly into the single `pwnagotchi-go` binary
-(see `cmd/pwnagotchi/main.go`'s `registerNativePlugins`) — there is no
-Python plugin bridge left to run, and `04-install-pwnagotchi` installs
-nothing but that one binary: no `python3`/`pip`, no `/opt/pwnagotchi-src`
-source tree, no `pip install`. Fonts and locale catalogs are embedded in
-the binary itself via `go:embed` (see `internal/ui/fonts`,
-`internal/voice`). Third-party plugins use the Go-only manifest/RPC
-distribution system in `internal/pluginrpc` instead of downloadable
-`.py` files — see `docs/plugin-development.md`.
+## Build the Daemon
 
-The build workflow's image-validation step runs `pwnagotchi-go plugins
-doctor` inside the built image's chroot (real, no hardware needed) and
-asserts no `.py` files, `python3` interpreter, `pip`, or
-`/opt/pwnagotchi-src` exist anywhere in the image.
+From the repository root:
 
-## Testing a build
+```sh
+go test ./...
+go test -race ./...
+go vet ./...
 
-1. Trigger the workflow manually (Actions tab → "Build Raspberry Pi
-   image" → Run workflow) or push a change matching the workflow's
-   trigger paths.
-2. Download the `pwnagotchi-pi-image` artifact; if the job fails, download
-   `pi-gen-build-log` instead and read it — don't re-run blindly.
-3. Flash with [Raspberry Pi Imager](https://www.raspberrypi.com/software/)
-   or `xzcat pwnagotchi*.img.xz | sudo dd of=/dev/sdX bs=4M status=progress`.
-4. Boot it, SSH in (`ENABLE_SSH=1` is set), and check:
-   ```
-   systemctl status bettercap pwngrid-peer pwnagotchi
-   journalctl -u pwnagotchi -f
-   ```
-5. The web UI should be reachable at `http://<pi-ip>:8080/` once
-   `pwnagotchi.service` is up.
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 \
+  go build -trimpath -o /tmp/pwnagotchi-go ./cmd/pwnagotchi
 
-Report back whatever actually breaks — this is a first pass through a
-pipeline that's never been run, not a finished, field-tested product.
+file /tmp/pwnagotchi-go
+go version -m /tmp/pwnagotchi-go
+```
+
+The daemon itself cross-compiles without CGO. Bettercap does not; the image
+pipeline builds bettercap natively inside the arm64 pi-gen chroot because its
+pcap/USB dependencies require target libraries.
+
+## Update an Existing Pi
+
+Do not deploy an untested working-tree build blindly. Record the current
+binary, config, and service state first.
+
+```sh
+scp /tmp/pwnagotchi-go pi@10.12.194.1:/tmp/pwnagotchi-go
+ssh pi@10.12.194.1
+```
+
+On the Pi:
+
+```sh
+sudo /tmp/pwnagotchi-go --version
+sudo /tmp/pwnagotchi-go plugins doctor --all --no-hardware
+
+sudo cp -a /usr/bin/pwnagotchi-go /usr/bin/pwnagotchi-go.backup
+sudo cp -a /etc/pwnagotchi/config.toml /etc/pwnagotchi/config.toml.backup
+sudo systemctl stop pwnagotchi
+sudo install -m 755 /tmp/pwnagotchi-go /usr/bin/pwnagotchi-go
+sudo ln -sfn /usr/bin/pwnagotchi-go /usr/bin/pwnagotchi
+sudo systemctl start pwnagotchi
+
+sudo systemctl --no-pager --full status pwnagotchi
+sudo journalctl -u pwnagotchi -n 100 --no-pager
+sudo pwnagotchi plugins doctor --all --no-hardware
+```
+
+Rollback if startup fails:
+
+```sh
+sudo systemctl stop pwnagotchi
+sudo install -m 755 /usr/bin/pwnagotchi-go.backup /usr/bin/pwnagotchi-go
+sudo cp -a /etc/pwnagotchi/config.toml.backup /etc/pwnagotchi/config.toml
+sudo systemctl start pwnagotchi
+```
+
+An executable update does not replace systemd units, launchers, boot config, or
+kernel/Nexmon files. Use a rebuilt image or update those files separately when
+deployment changes require them.
+
+Do not enable automatic installation as a substitute for this daemon update
+procedure. The daemon intentionally cannot stop, replace, and safely restart
+itself from an in-process plugin callback.
+
+## Build a Full Image
+
+`.github/workflows/build-pi-image.yml`:
+
+1. Cross-compiles `cmd/pwnagotchi` for `linux/arm64`.
+2. Runs pi-gen for Raspberry Pi OS Lite 64-bit.
+3. Builds bettercap in the arm64 chroot.
+4. Downloads and verifies the pwngrid arm64 release.
+5. Installs caplets, the daemon, launchers, and systemd units.
+6. Configures USB gadget networking, zram, hostname, SSH, I2C, and service
+   enablement.
+7. Pins/builds the kernel/Nexmon components described below.
+8. Runs non-hardware image validation and exports an xz-compressed image.
+
+The custom stages are under `deploy/pi-gen-stage`. Trigger the workflow
+manually, inspect all build logs, and treat upstream archive or kernel changes
+as release blockers until validated on a newly flashed card.
+
+The image contains no Python interpreter or Python plugin bridge. Locale data
+and fonts are embedded in the Go binary. Third-party plugins are separate Go
+executables.
+
+## Monitor Mode and Nexmon
+
+The stock Pi Zero 2 W onboard BCM43430/1 `brcmfmac` stack does not advertise
+monitor mode. Creating a monitor interface fails with `Operation not
+supported`. Pwnagotchi therefore needs one of:
+
+- a USB adapter whose Linux driver supports monitor mode and injection
+- a Nexmon firmware/module build that exactly matches the onboard chip, kernel,
+  and firmware
+
+The launcher prefers a non-`brcmfmac` USB adapter when available. NetworkManager
+is configured not to manage `wlan0`, and standalone `wpa_supplicant.service` is
+masked so those processes do not hold the radio during monitor setup.
+
+The Nexmon stage is sensitive to kernel/archive drift. Read
+`docs/kernel-nexmon-compatibility.md` and run:
+
+```sh
+sudo /usr/local/bin/validate-nexmon-runtime
+sudo /usr/local/bin/check-kernel-upgrade-safety
+iw phy
+iw dev
+```
+
+Do not apply routine kernel upgrades to a working Nexmon unit without first
+confirming module and firmware compatibility.
+
+## Displays and Buses
+
+The current Go build does not drive physical displays. `DummyDisplay` and
+headless/web rendering work; physical drivers return explicit unsupported
+errors. Keep:
+
+```toml
+[ui.display]
+enabled = false
+```
+
+unless a real Go driver has been implemented and tested for the exact panel.
+
+Updated images add `dtparam=i2c_arm=on`. After reboot:
+
+```sh
+ls -l /dev/i2c-*
+sudo i2cdetect -y 1
+```
+
+Only probe a bus when you know the attached devices and voltage levels. I2C
+plugins use `/dev/i2c-1`. GPIO plugins use `/sys/class/gpio`; the backend does
+not configure pull bias. SPI remains unavailable to the daemon.
+
+## Service Validation
+
+```sh
+systemctl is-active bettercap pwngrid-peer pwnagotchi
+systemctl show pwnagotchi -p User -p Group -p ExecStart
+journalctl -u bettercap -u pwngrid-peer -u pwnagotchi -b --no-pager
+
+pwnagotchi --version
+pwnagotchi plugins list --installed
+pwnagotchi plugins doctor --all --no-hardware
+
+curl -I http://10.12.194.1:8080/
+ss -lntup
+```
+
+An authenticated UI normally returns `401 Unauthorized` to the unauthenticated
+`curl` request. A `200 OK` response without credentials means auth is disabled
+or bypassed and must be investigated.

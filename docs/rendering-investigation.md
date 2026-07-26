@@ -1,5 +1,10 @@
 # Rendering Investigation: Go UI Text Corruption
 
+> **Historical investigation.** This records a completed rendering-debugging
+> effort. Current display support and remaining hardware gaps are documented in
+> [the feature matrix](feature-matrix.md) and
+> [known differences](known-differences.md).
+
 **Status: FIXED and regression-tested.** This document traces the full
 Python → Go rendering pipeline, identifies the exact stage where output
 diverged (producing the reported "corrupted"/unreadable text), the fix, and

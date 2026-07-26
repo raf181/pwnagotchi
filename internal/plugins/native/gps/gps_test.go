@@ -36,6 +36,8 @@ func (f *fakeAgent) Session(string) (interface{}, error) {
 func (f *fakeAgent) IsModuleRunning(string) bool { return false }
 func (f *fakeAgent) StartModule(string)          {}
 func (f *fakeAgent) RestartModule(string)        {}
+func (f *fakeAgent) SupportedChannels() []int    { return nil }
+func (f *fakeAgent) ResetHistory()               {}
 
 func (f *fakeAgent) snapshot() []recordedRun {
 	f.mu.Lock()

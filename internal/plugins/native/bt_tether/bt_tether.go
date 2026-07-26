@@ -464,6 +464,14 @@ func htmlResponse(body []byte) pluginmanager.WebhookResponse {
 	}
 }
 
+func methodNotAllowed(method string) pluginmanager.WebhookResponse {
+	return pluginmanager.WebhookResponse{
+		Status:  http.StatusMethodNotAllowed,
+		Headers: map[string]string{"Allow": method},
+		Body:    []byte("Method Not Allowed"),
+	}
+}
+
 // OnWebhook ports on_webhook: dispatches every real route the bundled
 // bt-tether.py serves under /plugins/bt-tether/...
 func (p *Plugin) OnWebhook(subpath string, r *http.Request) (pluginmanager.WebhookResponse, error) {
@@ -472,16 +480,26 @@ func (p *Plugin) OnWebhook(subpath string, r *http.Request) (pluginmanager.Webho
 
 	switch clean {
 	case "":
+		if r.Method != http.MethodGet {
+			return methodNotAllowed(http.MethodGet), nil
+		}
 		p.mu.Lock()
 		mac := p.phoneMAC
 		p.mu.Unlock()
+		csrf := ""
+		if cookie, err := r.Cookie("csrf_token"); err == nil {
+			csrf = cookie.Value
+		}
 		var buf bytes.Buffer
-		if err := htmlTemplate.Execute(&buf, struct{ Version, MAC string }{p.Metadata().Version, mac}); err != nil {
+		if err := htmlTemplate.Execute(&buf, struct{ Version, MAC, CSRF string }{p.Metadata().Version, mac, csrf}); err != nil {
 			return pluginmanager.WebhookResponse{Status: http.StatusInternalServerError}, nil
 		}
 		return htmlResponse(buf.Bytes()), nil
 
 	case "status":
+		if r.Method != http.MethodGet {
+			return methodNotAllowed(http.MethodGet), nil
+		}
 		p.mu.Lock()
 		resp := map[string]interface{}{
 			"status":                 string(p.status),
@@ -496,23 +514,38 @@ func (p *Plugin) OnWebhook(subpath string, r *http.Request) (pluginmanager.Webho
 		return jsonResponse(resp), nil
 
 	case "trusted-devices":
+		if r.Method != http.MethodGet {
+			return methodNotAllowed(http.MethodGet), nil
+		}
 		devices, _ := p.trustedDevices(ctx)
 		return jsonResponse(map[string]interface{}{"devices": devices}), nil
 
 	case "connect":
+		if r.Method != http.MethodPost {
+			return methodNotAllowed(http.MethodPost), nil
+		}
 		mac := normalizeMAC(r.URL.Query().Get("mac"))
 		return p.handleConnect(ctx, mac), nil
 
 	case "pair-device":
+		if r.Method != http.MethodPost {
+			return methodNotAllowed(http.MethodPost), nil
+		}
 		mac := normalizeMAC(r.URL.Query().Get("mac"))
 		name := r.URL.Query().Get("name")
 		return p.handlePairDevice(mac, name), nil
 
 	case "disconnect":
+		if r.Method != http.MethodPost {
+			return methodNotAllowed(http.MethodPost), nil
+		}
 		mac := normalizeMAC(r.URL.Query().Get("mac"))
 		return p.handleDisconnect(mac), nil
 
 	case "unpair":
+		if r.Method != http.MethodPost {
+			return methodNotAllowed(http.MethodPost), nil
+		}
 		mac := normalizeMAC(r.URL.Query().Get("mac"))
 		if !validMAC(mac) {
 			return jsonResponse(map[string]interface{}{"success": false, "message": "Invalid MAC"}), nil
@@ -521,6 +554,9 @@ func (p *Plugin) OnWebhook(subpath string, r *http.Request) (pluginmanager.Webho
 		return jsonResponse(map[string]interface{}{"success": ok, "message": msg}), nil
 
 	case "pair-status":
+		if r.Method != http.MethodGet {
+			return methodNotAllowed(http.MethodGet), nil
+		}
 		mac := normalizeMAC(r.URL.Query().Get("mac"))
 		if !validMAC(mac) {
 			return jsonResponse(map[string]interface{}{"paired": false, "connected": false}), nil
@@ -529,9 +565,15 @@ func (p *Plugin) OnWebhook(subpath string, r *http.Request) (pluginmanager.Webho
 		return jsonResponse(status), nil
 
 	case "scan":
+		if r.Method != http.MethodPost {
+			return methodNotAllowed(http.MethodPost), nil
+		}
 		return p.handleScan(), nil
 
 	case "scan-progress":
+		if r.Method != http.MethodGet {
+			return methodNotAllowed(http.MethodGet), nil
+		}
 		p.mu.Lock()
 		devices := make([]DiscoveredDevice, 0, len(p.discovered))
 		for _, d := range p.discovered {
@@ -542,6 +584,9 @@ func (p *Plugin) OnWebhook(subpath string, r *http.Request) (pluginmanager.Webho
 		return jsonResponse(map[string]interface{}{"scanning": scanning, "devices": devices, "count": len(devices)}), nil
 
 	case "connection-status":
+		if r.Method != http.MethodGet {
+			return methodNotAllowed(http.MethodGet), nil
+		}
 		mac := normalizeMAC(r.URL.Query().Get("mac"))
 		if !validMAC(mac) {
 			return jsonResponse(ConnectionStatus{}), nil
@@ -550,10 +595,16 @@ func (p *Plugin) OnWebhook(subpath string, r *http.Request) (pluginmanager.Webho
 		return jsonResponse(status), nil
 
 	case "test-internet":
+		if r.Method != http.MethodGet {
+			return methodNotAllowed(http.MethodGet), nil
+		}
 		ok, detail := p.testInternetConnectivity(ctx)
 		return jsonResponse(map[string]interface{}{"success": ok, "message": detail}), nil
 
 	case "logs":
+		if r.Method != http.MethodGet {
+			return methodNotAllowed(http.MethodGet), nil
+		}
 		p.mu.Lock()
 		logs := append([]logEntry(nil), p.uiLogs...)
 		p.mu.Unlock()

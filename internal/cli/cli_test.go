@@ -106,15 +106,38 @@ func TestParseArgsPluginsSubcommands(t *testing.T) {
 }
 
 func TestParseArgsPluginsNoSubcommandStillUsed(t *testing.T) {
-	a, err := ParseArgs([]string{"plugins"}, os.Stdout, os.Stderr)
-	if err != nil {
-		t.Fatal(err)
+	_, err := ParseArgs([]string{"plugins"}, os.Stdout, os.Stderr)
+	ee, ok := err.(*ExitError)
+	if !ok || ee.Code != 0 {
+		t.Fatalf("bare `plugins` should show help and exit 0, got %v", err)
 	}
-	if !a.UsedPluginCmd {
-		t.Fatal("bare `plugins` with no sub-subcommand must still count as used (matches Python's hasattr check)")
+}
+
+func TestParseArgsPluginsHelpExits0(t *testing.T) {
+	for _, argv := range [][]string{
+		{"plugins", "--help"},
+		{"plugins", "install", "--help"},
+	} {
+		_, err := ParseArgs(argv, os.Stdout, os.Stderr)
+		ee, ok := err.(*ExitError)
+		if !ok || ee.Code != 0 {
+			t.Fatalf("%v: expected ExitError{0}, got %v", argv, err)
+		}
 	}
-	if a.Plugin.Cmd != "" {
-		t.Fatalf("Plugin.Cmd = %q, want empty", a.Plugin.Cmd)
+}
+
+func TestParseArgsPluginsRejectsUnexpectedArguments(t *testing.T) {
+	for _, argv := range [][]string{
+		{"plugins", "install", "one", "two"},
+		{"plugins", "list", "--bogus"},
+		{"plugins", "update", "extra"},
+		{"plugins", "doctor", "--touch-hardware"},
+	} {
+		_, err := ParseArgs(argv, os.Stdout, os.Stderr)
+		ee, ok := err.(*ExitError)
+		if !ok || ee.Code != 2 {
+			t.Fatalf("%v: expected ExitError{2}, got %v", argv, err)
+		}
 	}
 }
 

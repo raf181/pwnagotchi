@@ -320,10 +320,149 @@ func TestOneFailingPluginLoadDoesNotAbortOthers(t *testing.T) {
 	}
 }
 
+type retryLoadPlugin struct {
+	recordingPlugin
+	attempts int
+}
+
+func (p *retryLoadPlugin) OnLoad(Capabilities) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.attempts++
+	if p.attempts == 1 {
+		return fmt.Errorf("first attempt failed")
+	}
+	p.loaded = true
+	return nil
+}
+
+func TestSuccessfulRetryClearsLoadError(t *testing.T) {
+	m := New(Options{})
+	p := &retryLoadPlugin{recordingPlugin: recordingPlugin{name: "retry"}}
+	_ = m.Register(p)
+	if err := m.Load(p.name, nil, nil); err == nil {
+		t.Fatal("expected first load to fail")
+	}
+	if err := m.Load(p.name, nil, nil); err != nil {
+		t.Fatalf("retry failed: %v", err)
+	}
+	for _, status := range m.List() {
+		if status.Name == p.name && status.LoadError != "" {
+			t.Fatalf("successful retry left stale load error: %q", status.LoadError)
+		}
+	}
+}
+
+type countingLifecyclePlugin struct {
+	recordingPlugin
+	loads   int
+	unloads int
+}
+
+func (p *countingLifecyclePlugin) OnLoad(Capabilities) error {
+	time.Sleep(time.Millisecond)
+	p.mu.Lock()
+	p.loads++
+	p.loaded = true
+	p.mu.Unlock()
+	return nil
+}
+
+func (p *countingLifecyclePlugin) OnUnload() error {
+	time.Sleep(time.Millisecond)
+	p.mu.Lock()
+	p.unloads++
+	p.loaded = false
+	p.mu.Unlock()
+	return nil
+}
+
+func TestConcurrentLifecycleCallsAreSerialized(t *testing.T) {
+	m := New(Options{})
+	p := &countingLifecyclePlugin{recordingPlugin: recordingPlugin{name: "concurrent"}}
+	_ = m.Register(p)
+
+	var wg sync.WaitGroup
+	for i := 0; i < 16; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_ = m.Load(p.name, nil, nil)
+		}()
+	}
+	wg.Wait()
+	for i := 0; i < 16; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_ = m.Unload(p.name)
+		}()
+	}
+	wg.Wait()
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.loads != 1 || p.unloads != 1 {
+		t.Fatalf("lifecycle counts = load %d, unload %d; want 1 each", p.loads, p.unloads)
+	}
+}
+
+type failedPlugin struct {
+	recordingPlugin
+	err error
+}
+
+func (p *failedPlugin) Failed() error { return p.err }
+
+func TestListIncludesAsynchronousPluginFailure(t *testing.T) {
+	m := New(Options{})
+	p := &failedPlugin{recordingPlugin: recordingPlugin{name: "remote"}, err: fmt.Errorf("process exited")}
+	_ = m.Register(p)
+	_ = m.Load(p.name, nil, nil)
+	defer m.Unload(p.name)
+
+	found := false
+	for _, status := range m.List() {
+		if status.Name == p.name {
+			found = true
+			if status.LastError != "process exited" {
+				t.Fatalf("LastError = %q, want asynchronous failure", status.LastError)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("plugin missing from status list")
+	}
+}
+
 type webhookPlugin struct{ recordingPlugin }
 
 func (p *webhookPlugin) OnWebhook(subpath string, r *http.Request) (WebhookResponse, error) {
 	return WebhookResponse{Status: 200, Body: []byte("hello:" + subpath)}, nil
+}
+
+type blockingWebhookPlugin struct {
+	recordingPlugin
+	started       chan struct{}
+	release       chan struct{}
+	webhookDone   chan struct{}
+	unloadSawDone bool
+}
+
+func (p *blockingWebhookPlugin) OnWebhook(string, *http.Request) (WebhookResponse, error) {
+	close(p.started)
+	<-p.release
+	close(p.webhookDone)
+	return WebhookResponse{Status: http.StatusOK}, nil
+}
+
+func (p *blockingWebhookPlugin) OnUnload() error {
+	select {
+	case <-p.webhookDone:
+		p.unloadSawDone = true
+	default:
+	}
+	return p.recordingPlugin.OnUnload()
 }
 
 func TestWebhookDispatchesToLoadedPlugin(t *testing.T) {
@@ -342,6 +481,48 @@ func TestWebhookDispatchesToLoadedPlugin(t *testing.T) {
 	}
 }
 
+func TestUnloadWaitsForInFlightWebhook(t *testing.T) {
+	m := New(Options{})
+	p := &blockingWebhookPlugin{
+		recordingPlugin: recordingPlugin{name: "blocking-hook", meta: Metadata{HasWebhook: true}},
+		started:         make(chan struct{}),
+		release:         make(chan struct{}),
+		webhookDone:     make(chan struct{}),
+	}
+	if err := m.Register(p); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.Load(p.name, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	webhookResult := make(chan error, 1)
+	go func() {
+		_, err := m.Webhook(p.name, "", httptest.NewRequest(http.MethodGet, "/plugins/blocking-hook/", nil))
+		webhookResult <- err
+	}()
+	<-p.started
+
+	unloadResult := make(chan error, 1)
+	go func() { unloadResult <- m.Unload(p.name) }()
+	select {
+	case err := <-unloadResult:
+		t.Fatalf("Unload returned before webhook completed: %v", err)
+	case <-time.After(20 * time.Millisecond):
+	}
+
+	close(p.release)
+	if err := <-webhookResult; err != nil {
+		t.Fatal(err)
+	}
+	if err := <-unloadResult; err != nil {
+		t.Fatal(err)
+	}
+	if !p.unloadSawDone {
+		t.Fatal("OnUnload ran before the in-flight webhook completed")
+	}
+}
+
 func TestWebhookFailsForPluginWithoutHandler(t *testing.T) {
 	m := New(Options{})
 	p := &recordingPlugin{name: "no-hook"}
@@ -350,6 +531,29 @@ func TestWebhookFailsForPluginWithoutHandler(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/plugins/no-hook/x", nil)
 	if _, err := m.Webhook(p.name, "x", req); err == nil {
 		t.Fatal("expected error for plugin without a webhook handler")
+	}
+}
+
+type unloadErrorPlugin struct{ recordingPlugin }
+
+func (p *unloadErrorPlugin) OnUnload() error {
+	_ = p.recordingPlugin.OnUnload()
+	return fmt.Errorf("cleanup failed")
+}
+
+func TestToggleReportsChangedWhenUnloadCleanupFails(t *testing.T) {
+	m := New(Options{})
+	p := &unloadErrorPlugin{recordingPlugin{name: "unload-error"}}
+	if err := m.Register(p); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.Load(p.name, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	changed, err := m.Toggle(p.name, false, nil, nil)
+	if !changed || err == nil {
+		t.Fatalf("Toggle changed=%v err=%v, want changed state and cleanup error", changed, err)
 	}
 }
 

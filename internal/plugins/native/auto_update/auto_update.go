@@ -45,9 +45,13 @@ import (
 )
 
 const (
-	commandTimeout  = 5 * time.Minute
-	httpTimeout     = 30 * time.Second
-	defaultStateDir = "/root"
+	commandTimeout          = 5 * time.Minute
+	httpTimeout             = 30 * time.Second
+	defaultStateDir         = "/root"
+	maxReleaseMetadataBytes = 2 << 20
+	maxReleaseZipBytes      = 128 << 20
+	maxUpdateBinaryBytes    = 64 << 20
+	maxChecksumBytes        = 64 << 10
 )
 
 // StatePath is the real plugin's StatusFile equivalent
@@ -242,6 +246,10 @@ func (p *Plugin) checkAndInstall() {
 		if info.URL != "" {
 			info.Service = spec.serviceName
 			p.logf("update for %s available (local version is %q): %s", spec.repo, info.Current, info.URL)
+			if spec.serviceName == "pwnagotchi" {
+				p.logf("pwnagotchi self-update is not installed in-process; rebuild/deploy the binary or image")
+				continue
+			}
 			toInstall = append(toInstall, info)
 		}
 	}
@@ -306,6 +314,9 @@ func (p *Plugin) check(localVersion, repo string) (UpdateInfo, error) {
 	if resp.StatusCode != http.StatusOK {
 		return info, fmt.Errorf("failed to get latest release for %s: %d", repo, resp.StatusCode)
 	}
+	if resp.ContentLength > maxReleaseMetadataBytes {
+		return info, fmt.Errorf("release metadata for %s is too large", repo)
+	}
 
 	var latest struct {
 		TagName string `json:"tag_name"`
@@ -313,8 +324,15 @@ func (p *Plugin) check(localVersion, repo string) (UpdateInfo, error) {
 			BrowserDownloadURL string `json:"browser_download_url"`
 		} `json:"assets"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&latest); err != nil {
+	metadata, err := readLimited(resp.Body, maxReleaseMetadataBytes, "release metadata")
+	if err != nil {
 		return info, err
+	}
+	if err := json.Unmarshal(metadata, &latest); err != nil {
+		return info, err
+	}
+	if latest.TagName == "" {
+		return info, fmt.Errorf("release metadata for %s is missing tag_name", repo)
 	}
 
 	availableVer := strings.ReplaceAll(latest.TagName, "v", "")
@@ -370,7 +388,10 @@ func (p *Plugin) installUpdate(update UpdateInfo) error {
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("downloading %s: HTTP %d", update.URL, resp.StatusCode)
 	}
-	zipData, err := io.ReadAll(resp.Body)
+	if resp.ContentLength > maxReleaseZipBytes {
+		return fmt.Errorf("release archive for %s is too large", name)
+	}
+	zipData, err := readLimited(resp.Body, maxReleaseZipBytes, "release archive")
 	if err != nil {
 		return err
 	}
@@ -384,31 +405,54 @@ func (p *Plugin) installUpdate(update UpdateInfo) error {
 		return fmt.Errorf("opening release zip: %w", err)
 	}
 
-	var binaryData []byte
-	var checksumData []byte
+	var binaryFile *zip.File
+	var fallbackFiles []*zip.File
 	for _, f := range zr.File {
 		base := filepath.Base(f.Name)
-		if base == name || strings.HasPrefix(base, name+"-") {
-			rc, err := f.Open()
-			if err != nil {
-				return err
-			}
-			binaryData, err = io.ReadAll(rc)
-			rc.Close()
-			if err != nil {
-				return err
-			}
+		if f.FileInfo().IsDir() {
+			continue
 		}
-		if strings.HasSuffix(base, ".sha256") {
-			rc, err := f.Open()
-			if err == nil {
-				checksumData, _ = io.ReadAll(rc)
-				rc.Close()
+		if base == name {
+			if binaryFile != nil {
+				return fmt.Errorf("release zip contains more than one binary named %q", name)
 			}
+			binaryFile = f
+		} else if strings.HasPrefix(base, name+"-") && !strings.HasSuffix(base, ".sha256") {
+			fallbackFiles = append(fallbackFiles, f)
 		}
 	}
-	if binaryData == nil {
+	if binaryFile == nil {
+		if len(fallbackFiles) > 1 {
+			return fmt.Errorf("release zip contains multiple possible binaries for %q", name)
+		}
+		if len(fallbackFiles) == 1 {
+			binaryFile = fallbackFiles[0]
+		}
+	}
+	if binaryFile == nil {
 		return fmt.Errorf("no binary named %q found in release zip", name)
+	}
+	if binaryFile.UncompressedSize64 > maxUpdateBinaryBytes {
+		return fmt.Errorf("binary %q in release zip is too large", filepath.Base(binaryFile.Name))
+	}
+	binaryData, err := readZipFile(binaryFile, maxUpdateBinaryBytes, "update binary")
+	if err != nil {
+		return err
+	}
+
+	binaryBase := filepath.Base(binaryFile.Name)
+	var checksumData []byte
+	for _, f := range zr.File {
+		if f.FileInfo().IsDir() || filepath.Base(f.Name) != binaryBase+".sha256" {
+			continue
+		}
+		if checksumData != nil {
+			return fmt.Errorf("release zip contains duplicate checksum files for %q", binaryBase)
+		}
+		checksumData, err = readZipFile(f, maxChecksumBytes, "checksum file")
+		if err != nil {
+			return err
+		}
 	}
 
 	if p.view != nil {
@@ -416,8 +460,9 @@ func (p *Plugin) installUpdate(update UpdateInfo) error {
 		p.view.Update(true)
 	}
 	if len(checksumData) == 0 {
-		p.logf("native update for %s without a SHA256 checksum file", name)
-	} else if !verifyChecksum(binaryData, checksumData) {
+		return fmt.Errorf("release zip has no %s.sha256 checksum file", binaryBase)
+	}
+	if !verifyChecksum(binaryData, checksumData, binaryBase) {
 		return fmt.Errorf("checksum mismatch for %s", name)
 	}
 
@@ -430,23 +475,116 @@ func (p *Plugin) installUpdate(update UpdateInfo) error {
 		p.view.Set("status", fmt.Sprintf("Installing %s %s ...", name, update.Available))
 		p.view.Update(true)
 	}
-	p.logf("stopping %s ...", update.Service)
-	p.systemctl("stop", update.Service)
+	tmpPath, err := writeExecutableTemp(destPath, binaryData)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmpPath)
 
-	tmpPath := destPath + ".new"
-	if err := os.WriteFile(tmpPath, binaryData, 0o755); err != nil {
-		return fmt.Errorf("writing new binary: %w", err)
-	}
-	if err := os.Rename(tmpPath, destPath); err != nil {
-		return fmt.Errorf("installing new binary: %w", err)
-	}
-	if err := os.Chmod(destPath, 0o755); err != nil {
+	p.logf("stopping %s ...", update.Service)
+	if err := p.systemctl("stop", update.Service); err != nil {
 		return err
 	}
 
+	backupPath, err := linkBackup(destPath)
+	if err != nil {
+		_ = p.systemctl("start", update.Service)
+		return fmt.Errorf("preserving old binary: %w", err)
+	}
+	removeBackup := true
+	defer func() {
+		if removeBackup {
+			_ = os.Remove(backupPath)
+		}
+	}()
+
+	if err := os.Rename(tmpPath, destPath); err != nil {
+		_ = p.systemctl("start", update.Service)
+		return fmt.Errorf("installing new binary: %w", err)
+	}
+
 	p.logf("restarting %s ...", update.Service)
-	p.systemctl("start", update.Service)
+	if err := p.systemctl("start", update.Service); err != nil {
+		rollbackErr := os.Rename(backupPath, destPath)
+		if rollbackErr != nil {
+			removeBackup = false
+		}
+		restartErr := p.systemctl("start", update.Service)
+		if rollbackErr != nil || restartErr != nil {
+			return fmt.Errorf("starting updated service: %w (rollback=%v, restart-old=%v)", err, rollbackErr, restartErr)
+		}
+		return fmt.Errorf("starting updated service: %w (restored old binary)", err)
+	}
 	return nil
+}
+
+func writeExecutableTemp(destPath string, data []byte) (path string, err error) {
+	dir := filepath.Dir(destPath)
+	f, err := os.CreateTemp(dir, "."+filepath.Base(destPath)+".new-*")
+	if err != nil {
+		return "", fmt.Errorf("creating new binary: %w", err)
+	}
+	path = f.Name()
+	defer func() {
+		if closeErr := f.Close(); err == nil && closeErr != nil {
+			err = closeErr
+		}
+		if err != nil {
+			_ = os.Remove(path)
+		}
+	}()
+	if err = f.Chmod(0o755); err != nil {
+		return path, fmt.Errorf("setting new binary permissions: %w", err)
+	}
+	if _, err = f.Write(data); err != nil {
+		return path, fmt.Errorf("writing new binary: %w", err)
+	}
+	if err = f.Sync(); err != nil {
+		return path, fmt.Errorf("syncing new binary: %w", err)
+	}
+	return path, nil
+}
+
+func linkBackup(destPath string) (string, error) {
+	f, err := os.CreateTemp(filepath.Dir(destPath), "."+filepath.Base(destPath)+".backup-*")
+	if err != nil {
+		return "", err
+	}
+	backupPath := f.Name()
+	if err := f.Close(); err != nil {
+		_ = os.Remove(backupPath)
+		return "", err
+	}
+	if err := os.Remove(backupPath); err != nil {
+		return "", err
+	}
+	if err := os.Link(destPath, backupPath); err != nil {
+		return "", err
+	}
+	return backupPath, nil
+}
+
+func readZipFile(f *zip.File, max int64, label string) ([]byte, error) {
+	if f.UncompressedSize64 > uint64(max) {
+		return nil, fmt.Errorf("%s is too large", label)
+	}
+	rc, err := f.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer rc.Close()
+	return readLimited(rc, max, label)
+}
+
+func readLimited(r io.Reader, max int64, label string) ([]byte, error) {
+	data, err := io.ReadAll(io.LimitReader(r, max+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > max {
+		return nil, fmt.Errorf("%s exceeds %d bytes", label, max)
+	}
+	return data, nil
 }
 
 // destPathFor mirrors `subprocess.getoutput("which %s" % name)`: find the
@@ -464,21 +602,31 @@ func (p *Plugin) destPathFor(name string) (string, error) {
 		return "", fmt.Errorf("can't find path for %s: %w", name, err)
 	}
 	path := strings.TrimSpace(string(out))
-	if path == "" {
+	if path == "" || strings.ContainsAny(path, "\r\n") || !filepath.IsAbs(path) {
 		return "", fmt.Errorf("can't find path for %s", name)
 	}
-	return path, nil
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return "", fmt.Errorf("resolving path for %s: %w", name, err)
+	}
+	info, err := os.Stat(resolved)
+	if err != nil || !info.Mode().IsRegular() {
+		return "", fmt.Errorf("path for %s is not a regular file", name)
+	}
+	return resolved, nil
 }
 
-func (p *Plugin) systemctl(action, service string) {
+func (p *Plugin) systemctl(action, service string) error {
 	if p.exec == nil {
-		return
+		return fmt.Errorf("no command runner available for systemctl %s %s", action, service)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	if _, err := p.exec.Run(ctx, "systemctl", action, service); err != nil {
 		p.logf("systemctl %s %s: %v", action, service, err)
+		return fmt.Errorf("systemctl %s %s: %w", action, service, err)
 	}
+	return nil
 }
 
 // localVersion ports parse_version(cmd): run `<bin> <flag>` and pull out
@@ -540,16 +688,51 @@ func goArchToUname(goarch string) string {
 	}
 }
 
-func verifyChecksum(data, checksumFile []byte) bool {
-	expected := strings.ToLower(strings.TrimSpace(string(checksumFile)))
-	if idx := strings.IndexByte(expected, '='); idx >= 0 {
-		expected = strings.TrimSpace(expected[idx+1:])
-	}
-	if idx := strings.IndexByte(expected, ' '); idx >= 0 {
-		expected = expected[:idx]
+func verifyChecksum(data, checksumFile []byte, binaryName string) bool {
+	expected := checksumForFile(checksumFile, binaryName)
+	if expected == "" {
+		return false
 	}
 	sum := sha256.Sum256(data)
 	return hex.EncodeToString(sum[:]) == expected
+}
+
+func checksumForFile(checksumFile []byte, binaryName string) string {
+	for _, rawLine := range strings.Split(string(checksumFile), "\n") {
+		line := strings.TrimSpace(rawLine)
+		if line == "" {
+			continue
+		}
+		if open := strings.Index(line, "("); open >= 0 {
+			if close := strings.Index(line[open+1:], ")"); close >= 0 {
+				close += open + 1
+				fields := strings.Fields(line[close+1:])
+				if filepath.Base(strings.TrimSpace(line[open+1:close])) == binaryName &&
+					len(fields) == 2 && fields[0] == "=" && validSHA256(fields[1]) {
+					return strings.ToLower(fields[1])
+				}
+			}
+		}
+		fields := strings.Fields(line)
+		if len(fields) == 1 && validSHA256(fields[0]) {
+			return strings.ToLower(fields[0])
+		}
+		if len(fields) >= 2 {
+			file := strings.TrimPrefix(fields[len(fields)-1], "*")
+			if filepath.Base(file) == binaryName && validSHA256(fields[0]) {
+				return strings.ToLower(fields[0])
+			}
+		}
+	}
+	return ""
+}
+
+func validSHA256(value string) bool {
+	if len(value) != sha256.Size*2 {
+		return false
+	}
+	_, err := hex.DecodeString(value)
+	return err == nil
 }
 
 func toFloat(v interface{}) (float64, bool) {

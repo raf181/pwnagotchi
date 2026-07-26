@@ -157,6 +157,18 @@ func TestVoltageClampedBeforeCapacityCalculation(t *testing.T) {
 	}
 }
 
+func TestCurrentFromRegisters(t *testing.T) {
+	regs := map[uint8]byte{regCurrentI: 1, regCurrentD: 25}
+	bus := &fakeI2CBus{dev: newFakeDevice(regs)}
+	p := New()
+	if err := p.OnLoad(pluginmanager.Capabilities{View: newFakeView(), I2C: bus}); err != nil {
+		t.Fatal(err)
+	}
+	if got := p.current(); got != 1.25 {
+		t.Fatalf("current() = %v, want 1.25", got)
+	}
+}
+
 func TestHandleEventUiUpdateSetsFormattedValue(t *testing.T) {
 	regs := map[uint8]byte{regVoltageI: 4, regVoltageD: 20, regPowerMode: 0}
 	bus := &fakeI2CBus{dev: newFakeDevice(regs)}

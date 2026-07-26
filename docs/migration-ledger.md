@@ -1,5 +1,10 @@
 # Migration ledger — Python → Go
 
+> **Historical record.** This chronological ledger intentionally preserves
+> claims and counts from earlier repository states. Use
+> [the documentation index](README.md), [feature matrix](feature-matrix.md),
+> and current source code for operational status.
+
 Snapshot as of 2026-07-24, branch `fix-internal-antenna`. This is the
 machine-checkable inventory required by `GO_ONLY_MIGRATION_PROMPT.md` §1: every
 tracked Python file and Python-owned non-code asset, mapped to its current

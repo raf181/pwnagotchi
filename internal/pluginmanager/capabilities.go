@@ -17,12 +17,9 @@ import (
 // internal/grid — those packages already import EventEmitter-shaped
 // interfaces the same way, so nothing here creates an import cycle.
 //
-// Fields land as concrete capabilities become available: GPIO/I2C/SPI are
-// defined now (the interface every hardware-touching plugin must code
-// against) but only get a real, non-fake implementation once the bus
-// abstraction work (see the display-hardware migration task) lands —
-// until then production wiring may leave them nil, and a plugin using one
-// on a nil capability gets a clear error, never a silent fake success.
+// Production currently wires Agent, View, Exec, HTTPClient, Clock, GPIO,
+// I2C, System, Emit, and the manager-provided Log. Other fields remain
+// available for host-specific injection; SPI is not wired by the daemon.
 type Capabilities struct {
 	// Config is this plugin's own config sub-map
 	// (config['main']['plugins'][name]), the same shape Python plugins see
@@ -86,6 +83,8 @@ type AgentCapability interface {
 	IsModuleRunning(module string) bool
 	StartModule(module string)
 	RestartModule(module string)
+	SupportedChannels() []int
+	ResetHistory()
 }
 
 // FontStyle names the font role a plugin-added text element should
@@ -180,11 +179,8 @@ type Clock interface {
 	Now() time.Time
 }
 
-// GPIOCapability is a single GPIO line: read, write, and edge-triggered
-// wait, matching what gpio_buttons/wittypi/pisugarx need. A real Linux
-// implementation is added by the display-hardware bus migration (SPI/I2C/
-// GPIO/PWM abstractions); until then production may inject nil and a
-// plugin dereferencing it fails loudly rather than pretending success.
+// GPIOCapability opens a GPIO line for read, write, and edge-triggered
+// waits. The Linux host implementation uses the legacy sysfs GPIO ABI.
 type GPIOCapability interface {
 	Line(pin int) (GPIOLine, error)
 }

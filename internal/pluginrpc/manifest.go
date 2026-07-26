@@ -10,7 +10,7 @@
 //
 // See GO_ONLY_MIGRATION_PROMPT.md's plugin-distribution requirement:
 // "prefer separately versioned Go executables with a manifest,
-// checksum/signature verification, a bounded RPC protocol, explicit
+// checksum verification, a bounded RPC protocol, explicit
 // capabilities, and crash isolation."
 package pluginrpc
 
@@ -19,7 +19,9 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -30,9 +32,20 @@ import (
 // rather than partially/incorrectly interpreted.
 const CurrentManifestVersion = 1
 
-// Manifest describes one distributable third-party Go plugin: enough to
-// verify, fetch, and spawn it safely without ever executing untrusted
-// code the daemon can't first check the identity of.
+var pluginNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
+
+var supportedCapabilityGroups = map[string]bool{
+	"Log":   true,
+	"Agent": true,
+	"View":  true,
+	"Exec":  true,
+	"Clock": true,
+}
+
+// Manifest describes one distributable third-party Go plugin. SHA256
+// protects the executable against accidental corruption or a mismatch
+// with this manifest; the manifest is not signed, so repository trust is
+// still required.
 type Manifest struct {
 	ManifestVersion int      `toml:"manifest_version"`
 	Name            string   `toml:"name"`
@@ -54,8 +67,12 @@ type Manifest struct {
 // human needs to fix, never a silently-accepted partial manifest.
 func ParseManifest(data []byte) (*Manifest, error) {
 	var m Manifest
-	if _, err := toml.Decode(string(data), &m); err != nil {
+	metadata, err := toml.Decode(string(data), &m)
+	if err != nil {
 		return nil, fmt.Errorf("pluginrpc: invalid manifest TOML: %w", err)
+	}
+	if unknown := metadata.Undecoded(); len(unknown) > 0 {
+		return nil, fmt.Errorf("pluginrpc: manifest contains unknown field %q", unknown[0].String())
 	}
 	if err := m.Validate(); err != nil {
 		return nil, err
@@ -63,16 +80,42 @@ func ParseManifest(data []byte) (*Manifest, error) {
 	return &m, nil
 }
 
+// ReadManifestFile reads and validates a local manifest without allowing a
+// corrupt file to allocate unbounded memory.
+func ReadManifestFile(path string) (*Manifest, []byte, error) {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+		return nil, nil, fmt.Errorf("pluginrpc: manifest %s is not a regular file", path)
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer f.Close()
+	data, err := readLimited(f, MaxManifestBytes, "plugin manifest")
+	if err != nil {
+		return nil, nil, err
+	}
+	manifest, err := ParseManifest(data)
+	if err != nil {
+		return nil, nil, err
+	}
+	return manifest, data, nil
+}
+
 // Validate checks every required field is present and well-formed.
 func (m *Manifest) Validate() error {
 	if m.ManifestVersion == 0 {
 		return fmt.Errorf("pluginrpc: manifest missing manifest_version")
 	}
-	if m.ManifestVersion > CurrentManifestVersion {
-		return fmt.Errorf("pluginrpc: manifest_version %d is newer than this daemon understands (max %d) — upgrade pwnagotchi first", m.ManifestVersion, CurrentManifestVersion)
+	if m.ManifestVersion != CurrentManifestVersion {
+		return fmt.Errorf("pluginrpc: unsupported manifest_version %d (want %d)", m.ManifestVersion, CurrentManifestVersion)
 	}
-	if m.Name == "" {
-		return fmt.Errorf("pluginrpc: manifest missing name")
+	if err := ValidatePluginName(m.Name); err != nil {
+		return err
 	}
 	if m.Version == "" {
 		return fmt.Errorf("pluginrpc: manifest %q missing version", m.Name)
@@ -90,6 +133,53 @@ func (m *Manifest) Validate() error {
 	m.SHA256 = sha
 	if m.ExecutableURL == "" {
 		return fmt.Errorf("pluginrpc: manifest %q missing executable_url", m.Name)
+	}
+	if err := validateHTTPURL(m.ExecutableURL); err != nil {
+		return fmt.Errorf("pluginrpc: manifest %q has invalid executable_url: %w", m.Name, err)
+	}
+	seenCapabilities := map[string]bool{}
+	for _, capability := range m.Capabilities {
+		if !supportedCapabilityGroups[capability] {
+			return fmt.Errorf("pluginrpc: manifest %q requests unsupported capability %q", m.Name, capability)
+		}
+		if seenCapabilities[capability] {
+			return fmt.Errorf("pluginrpc: manifest %q lists capability %q more than once", m.Name, capability)
+		}
+		seenCapabilities[capability] = true
+	}
+	return nil
+}
+
+// ValidatePluginName rejects values that could escape the install root or
+// produce ambiguous config keys.
+func ValidatePluginName(name string) error {
+	if name == "" {
+		return fmt.Errorf("pluginrpc: manifest missing name")
+	}
+	if !pluginNamePattern.MatchString(name) {
+		return fmt.Errorf("pluginrpc: invalid plugin name %q (use 1-64 letters, digits, dot, underscore, or hyphen; start with a letter or digit)", name)
+	}
+	return nil
+}
+
+// ValidateTarget ensures a package was built for this daemon's runtime.
+func (m *Manifest) ValidateTarget(goos, goarch string) error {
+	if m.OS != goos || m.Arch != goarch {
+		return fmt.Errorf("pluginrpc: plugin %q targets %s/%s, but this daemon runs on %s/%s", m.Name, m.OS, m.Arch, goos, goarch)
+	}
+	return nil
+}
+
+func validateHTTPURL(raw string) error {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return err
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("scheme must be http or https")
+	}
+	if u.Host == "" {
+		return fmt.Errorf("URL must include a host")
 	}
 	return nil
 }
@@ -111,11 +201,28 @@ func (e *ErrChecksumMismatch) Error() string {
 // compares it against the manifest, byte for byte. This is the one gate
 // every spawn must pass through first.
 func (m *Manifest) VerifyExecutable(path string) error {
+	linkInfo, err := os.Lstat(path)
+	if err != nil {
+		return fmt.Errorf("pluginrpc: inspecting %s for checksum verification: %w", path, err)
+	}
+	if linkInfo.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("pluginrpc: executable %s is a symbolic link", path)
+	}
 	f, err := os.Open(path)
 	if err != nil {
 		return fmt.Errorf("pluginrpc: opening %s for checksum verification: %w", path, err)
 	}
 	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return fmt.Errorf("pluginrpc: inspecting %s for checksum verification: %w", path, err)
+	}
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("pluginrpc: executable %s is not a regular file", path)
+	}
+	if info.Mode().Perm()&0o111 == 0 {
+		return fmt.Errorf("pluginrpc: executable %s has no executable permission bits", path)
+	}
 
 	h := sha256.New()
 	if _, err := io.Copy(h, f); err != nil {

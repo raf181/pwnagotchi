@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/jayofelony/pwnagotchi/internal/config"
+	"github.com/jayofelony/pwnagotchi/internal/pluginrpc"
 	"github.com/jayofelony/pwnagotchi/internal/plugins"
 )
 
@@ -64,6 +65,7 @@ func (s *Server) pluginsIndex(w http.ResponseWriter, r *http.Request) {
 // pluginsSubpath ports /plugins/<name>[/<subpath>]: the toggle/upgrade
 // actions and the generic on_webhook passthrough.
 func (s *Server) pluginsSubpath(w http.ResponseWriter, r *http.Request) {
+	ensureCSRFToken(w, r)
 	rest := strings.TrimPrefix(r.URL.Path, "/plugins/")
 	parts := strings.SplitN(rest, "/", 2)
 	name := parts[0]
@@ -104,11 +106,19 @@ func (s *Server) pluginsSubpath(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if name == "toggle" && r.Method == http.MethodPost {
+	if name == "toggle" {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			return
+		}
 		s.pluginToggle(w, r)
 		return
 	}
-	if name == "upgrade" && r.Method == http.MethodPost {
+	if name == "upgrade" {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			return
+		}
 		s.pluginUpgrade(w, r)
 		return
 	}
@@ -127,6 +137,10 @@ func (s *Server) pluginsSubpath(w http.ResponseWriter, r *http.Request) {
 // loaded natively in the manager: a real *http.Request handed directly to
 // the plugin's OnWebhook, no serialization boundary.
 func (s *Server) pluginWebhookNative(w http.ResponseWriter, r *http.Request, name, subpath string) {
+	if unsafeMethod(r.Method) && !checkCSRF(r) {
+		http.Error(w, "CSRF token missing or invalid", http.StatusForbidden)
+		return
+	}
 	resp, err := s.pluginMgr.Webhook(name, subpath, r)
 	if err != nil {
 		http.Error(w, "", http.StatusNotFound)
@@ -151,29 +165,101 @@ func (s *Server) pluginToggle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := r.FormValue("plugin")
+	if err := pluginrpc.ValidatePluginName(name); err != nil {
+		http.Error(w, "failed", http.StatusBadRequest)
+		return
+	}
 	checked := r.FormValue("enabled") != ""
 
-	var pluginCfg config.Map
-	if s.cfg != nil {
-		pluginCfg = pluginConfigEntry(s.cfg, name)
-		pluginCfg["enabled"] = checked
-	}
-
 	if s.pluginMgr == nil || !s.pluginMgr.Has(name) {
-		w.Write([]byte("failed"))
-		return
-	}
-	changed, err := s.pluginMgr.Toggle(name, checked, pluginCfg, s.cfg)
-	if err != nil || !changed {
-		w.Write([]byte("failed"))
+		http.Error(w, "failed", http.StatusNotFound)
 		return
 	}
 
-	if s.cfg != nil && s.cfgPath != "" {
-		_ = config.SaveConfig(s.cfg, s.cfgPath)
+	var pluginCfg config.Map
+	rollbackConfig := func() {}
+	if s.cfg != nil {
+		pluginCfg, rollbackConfig = stagePluginEnabled(s.cfg, name, checked)
+	}
+
+	changed, toggleErr := s.pluginMgr.Toggle(name, checked, pluginCfg, s.cfg)
+	if toggleErr != nil && !changed {
+		rollbackConfig()
+		http.Error(w, "failed", http.StatusInternalServerError)
+		return
+	}
+
+	if changed && s.cfg != nil && s.cfgPath != "" {
+		if err := config.SaveConfig(s.cfg, s.cfgPath); err != nil {
+			rollbackConfig()
+			_, _ = s.pluginMgr.Toggle(name, !checked, pluginCfg, s.cfg)
+			http.Error(w, "failed", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	if toggleErr != nil {
+		http.Error(w, "plugin state changed but cleanup failed", http.StatusInternalServerError)
+		return
 	}
 
 	w.Write([]byte("success"))
+}
+
+// stagePluginEnabled applies a requested state and returns a closure that
+// restores the exact prior map shape. The rollback matters when runtime
+// loading or persistence fails: failed toggles must not leave new config
+// sections or a stale enabled value in the shared live configuration.
+func stagePluginEnabled(cfg config.Map, name string, enabled bool) (config.Map, func()) {
+	oldMain, hadMain := cfg["main"]
+	mainCfg, mainWasMap := oldMain.(config.Map)
+	if !mainWasMap {
+		mainCfg = config.Map{}
+		cfg["main"] = mainCfg
+	}
+	oldPlugins, hadPlugins := mainCfg["plugins"]
+	pluginsCfg, pluginsWasMap := oldPlugins.(config.Map)
+	if !pluginsWasMap {
+		pluginsCfg = config.Map{}
+		mainCfg["plugins"] = pluginsCfg
+	}
+	oldEntry, hadEntry := pluginsCfg[name]
+	entry, entryWasMap := oldEntry.(config.Map)
+	if !entryWasMap {
+		entry = config.Map{}
+		pluginsCfg[name] = entry
+	}
+	oldEnabled, hadEnabled := entry["enabled"]
+	entry["enabled"] = enabled
+
+	return entry, func() {
+		if hadEnabled {
+			entry["enabled"] = oldEnabled
+		} else {
+			delete(entry, "enabled")
+		}
+		if !entryWasMap {
+			if hadEntry {
+				pluginsCfg[name] = oldEntry
+			} else {
+				delete(pluginsCfg, name)
+			}
+		}
+		if !pluginsWasMap {
+			if hadPlugins {
+				mainCfg["plugins"] = oldPlugins
+			} else {
+				delete(mainCfg, "plugins")
+			}
+		}
+		if !mainWasMap {
+			if hadMain {
+				cfg["main"] = oldMain
+			} else {
+				delete(cfg, "main")
+			}
+		}
+	}
 }
 
 // pluginConfigEntry returns (creating if necessary) config['main']
@@ -200,23 +286,25 @@ func pluginConfigEntry(cfg config.Map, name string) config.Map {
 	return entry
 }
 
-// pluginUpgrade ports the `name == "upgrade"` branch: real Python shells
-// out to `pwnagotchi plugins update && pwnagotchi plugins upgrade <name>`
-// via os.system. This calls the real, already-ported internal/plugins
-// Update/Upgrade functions in-process instead of spawning a shell —
-// same real behavior (network fetch + file replace), no shell string
-// interpolation of a user-influenced plugin name, matching the "avoid
-// unnecessary shell execution" security requirement more strictly than
-// the Python original. See docs/known-differences.md.
+// pluginUpgrade ports the `name == "upgrade"` branch. It calls the
+// already-ported internal/plugins upgrade function in-process instead of
+// spawning a shell, avoiding shell interpolation of a user-controlled
+// plugin name. See docs/known-differences.md.
 func (s *Server) pluginUpgrade(w http.ResponseWriter, r *http.Request) {
 	if !checkCSRF(r) {
 		http.Error(w, "CSRF token missing or invalid", http.StatusForbidden)
 		return
 	}
 	name := r.FormValue("plugin")
+	if err := pluginrpc.ValidatePluginName(name); err != nil {
+		http.Error(w, "invalid plugin name", http.StatusBadRequest)
+		return
+	}
 	if s.cfg != nil {
-		plugins.Update(s.cfg)
-		plugins.Upgrade(s.cfg, name)
+		if plugins.Upgrade(s.cfg, name) != 0 {
+			http.Error(w, "plugin upgrade failed", http.StatusBadGateway)
+			return
+		}
 	}
 	http.Redirect(w, r, "/plugins", http.StatusFound)
 }

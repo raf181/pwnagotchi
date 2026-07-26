@@ -2,6 +2,7 @@ package web
 
 import (
 	"bufio"
+	"io"
 	"net/http"
 	"os"
 	"time"
@@ -95,7 +96,7 @@ func (s *Server) logtailStream(w http.ResponseWriter, r *http.Request) {
 	}
 	flusher.Flush()
 
-	if _, err := f.Seek(0, os.SEEK_END); err != nil {
+	if _, err := f.Seek(0, io.SeekEnd); err != nil {
 		return
 	}
 	reader := bufio.NewReader(f)

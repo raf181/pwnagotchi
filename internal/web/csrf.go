@@ -32,7 +32,7 @@ func csrfToken(w http.ResponseWriter, r *http.Request) string {
 		Name:     csrfCookieName,
 		Value:    token,
 		Path:     "/",
-		HttpOnly: false, // must be readable by the server to embed in the form; not by page JS either way since it's never read via document.cookie here
+		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
 	})
 	return token
@@ -43,9 +43,27 @@ func checkCSRF(r *http.Request) bool {
 	if err != nil || cookie.Value == "" {
 		return false
 	}
-	submitted := r.FormValue("csrf_token")
+	submitted := r.Header.Get("X-CSRF-Token")
+	if submitted == "" {
+		submitted = r.Header.Get("X-CSRFToken")
+	}
+	if submitted == "" {
+		submitted = r.FormValue("csrf_token")
+	}
 	if submitted == "" {
 		return false
 	}
 	return subtle.ConstantTimeCompare([]byte(cookie.Value), []byte(submitted)) == 1
+}
+
+func ensureCSRFToken(w http.ResponseWriter, r *http.Request) string {
+	token := csrfToken(w, r)
+	if _, err := r.Cookie(csrfCookieName); err != nil {
+		r.AddCookie(&http.Cookie{Name: csrfCookieName, Value: token, Path: "/"})
+	}
+	return token
+}
+
+func unsafeMethod(method string) bool {
+	return method != http.MethodGet && method != http.MethodHead && method != http.MethodOptions
 }

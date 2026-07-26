@@ -198,6 +198,28 @@ func TestSendMessagePostsRawUTF8Body(t *testing.T) {
 	}
 }
 
+func TestSendMessageEscapesRecipientPathSegment(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got, want := r.URL.EscapedPath(), "/api/v1/unit/abc%2F..%2Fadmin/inbox"; got != want {
+			t.Errorf("escaped path = %q, want %q", got, want)
+		}
+		json.NewEncoder(w).Encode(map[string]bool{"ok": true})
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv)
+	if _, err := c.SendMessage("abc/../admin", "hello"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestSendMessageRejectsEmptyRecipient(t *testing.T) {
+	c := NewClient("")
+	if _, err := c.SendMessage("  ", "hello"); err == nil {
+		t.Fatal("expected an empty recipient to be rejected")
+	}
+}
+
 func TestUpdateDataBuildsExpectedPayload(t *testing.T) {
 	var gotBody map[string]interface{}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

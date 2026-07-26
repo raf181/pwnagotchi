@@ -45,6 +45,16 @@ func (h *minimalHeadless) Set(key string, value interface{}) {
 	h.sets[key] = value
 }
 
+type unreadTarget struct {
+	count int
+	total int
+}
+
+func (u *unreadTarget) OnUnreadMessages(count, total int) {
+	u.count = count
+	u.total = total
+}
+
 func TestViewAdapterWithRealDisplayForwardsEverything(t *testing.T) {
 	rv := newTestRealView(t)
 	a := View{V: rv}
@@ -97,6 +107,14 @@ func TestViewAdapterWithHeadlessDegradesSafely(t *testing.T) {
 	a.Set("status", "hunting")
 	if h.sets["status"] != "hunting" {
 		t.Fatalf("expected Set to forward to the headless view, got %v", h.sets)
+	}
+}
+
+func TestViewAdapterForwardsUnreadMessages(t *testing.T) {
+	target := &unreadTarget{}
+	View{V: target}.OnUnreadMessages(2, 5)
+	if target.count != 2 || target.total != 5 {
+		t.Fatalf("unread state = %d/%d, want 2/5", target.count, target.total)
 	}
 }
 

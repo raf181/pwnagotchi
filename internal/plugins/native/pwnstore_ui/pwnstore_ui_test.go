@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jayofelony/pwnagotchi/internal/config"
 	"github.com/jayofelony/pwnagotchi/internal/pluginmanager"
 )
 
@@ -56,6 +57,13 @@ func TestRenderStoreServesRealEmbeddedHTML(t *testing.T) {
 	if !strings.Contains(string(resp.Body), "PwnStore") {
 		t.Fatalf("expected real store HTML, got: %.200s", resp.Body)
 	}
+	if strings.Contains(string(resp.Body), "container.innerHTML") ||
+		strings.Contains(string(resp.Body), "overlay.innerHTML") {
+		t.Fatal("remote store values must not be rendered through innerHTML")
+	}
+	if !strings.Contains(string(resp.Body), "container.replaceChildren()") {
+		t.Fatal("expected DOM-based plugin rendering")
+	}
 	if !strings.Contains(string(resp.Body), `content=""`) {
 		t.Fatalf("expected empty csrf token substituted (no cookie on request), got: %.400s", resp.Body)
 	}
@@ -100,12 +108,9 @@ func TestGetPluginsFallsBackToEmptyArrayOnFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// A non-200 upstream response is still passed through verbatim by
-	// real Python (`requests.get(...).text` regardless of status) unless
-	// the request itself raised (connection error/timeout) — verified by
-	// re-reading _get_plugins: only an exception triggers the "[]"
-	// fallback, not a non-2xx status.
-	_ = resp
+	if strings.TrimSpace(string(resp.Body)) != "[]" {
+		t.Fatalf("expected [] fallback on non-200 response, got %s", resp.Body)
+	}
 }
 
 func TestGetPluginsFallsBackOnConnectionError(t *testing.T) {
@@ -202,25 +207,56 @@ func TestConfigurePluginRewritesConfigFile(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", resp.Status, resp.Body)
 	}
 
-	data, _ := os.ReadFile(cfgPath)
-	content := string(data)
-	if strings.Contains(content, "old_key") {
-		t.Fatalf("expected old plugin config lines removed, got:\n%s", content)
+	saved, err := config.LoadTOMLFileForEdit(cfgPath)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if !strings.Contains(content, `main.plugins.someplugin.enabled = true`) {
-		t.Fatalf("expected enabled=true stanza, got:\n%s", content)
+	main := saved["main"].(config.Map)
+	if main["name"] != "test" {
+		t.Fatalf("unrelated config was not preserved: %v", main)
 	}
-	if !strings.Contains(content, `main.plugins.someplugin.api_key = "secret"`) {
-		t.Fatalf("expected quoted string value, got:\n%s", content)
+	plugins := main["plugins"].(config.Map)
+	entry := plugins["someplugin"].(config.Map)
+	if _, exists := entry["old_key"]; exists {
+		t.Fatalf("old plugin config was not replaced: %v", entry)
 	}
-	if !strings.Contains(content, `main.plugins.someplugin.threshold = 5`) {
-		t.Fatalf("expected bare numeric value, got:\n%s", content)
+	if entry["enabled"] != true || entry["api_key"] != "secret" || entry["threshold"] != int64(5) || entry["enabled_flag"] != true {
+		t.Fatalf("unexpected saved plugin config: %v", entry)
 	}
-	if !strings.Contains(content, `main.plugins.someplugin.enabled_flag = true`) {
-		t.Fatalf("expected bare bool value, got:\n%s", content)
+}
+
+func TestConfigurePluginRejectsUnsafeNamesAndKeys(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.toml")
+	original := []byte("[main]\nname = \"test\"\n")
+	if err := os.WriteFile(cfgPath, original, 0o644); err != nil {
+		t.Fatal(err)
 	}
-	if !strings.Contains(content, `main.name = "test"`) {
-		t.Fatalf("expected unrelated config preserved, got:\n%s", content)
+	origPath := configPath
+	configPath = cfgPath
+	defer func() { configPath = origPath }()
+	p, _ := newTestPlugin(t, "")
+
+	for _, body := range []string{
+		`{"plugin":"../outside","config":{}}`,
+		`{"plugin":"safe","config":{"bad.key":"value"}}`,
+		`{"plugin":"safe","config":{},"unknown":true}`,
+	} {
+		req := httptest.NewRequest(http.MethodPost, "/x", strings.NewReader(body))
+		resp, err := p.OnWebhook("api/configure", req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.Status != http.StatusBadRequest {
+			t.Fatalf("body %s: status=%d, want 400", body, resp.Status)
+		}
+	}
+	data, err := os.ReadFile(cfgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != string(original) {
+		t.Fatalf("rejected request changed config: %q", data)
 	}
 }
 

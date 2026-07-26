@@ -1,8 +1,10 @@
 package pluginrpc
 
 import (
+	"context"
 	"encoding/json"
 	"io"
+	"strings"
 	"testing"
 	"time"
 )
@@ -56,5 +58,72 @@ func TestClientDispatchesEventToHandler(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for event dispatch")
+	}
+}
+
+func TestClientEventHandlerCanCallCapability(t *testing.T) {
+	hostIn, hostOut, clientIn, clientOut := pipePair()
+	client := NewClient(clientIn, clientOut)
+
+	callDone := make(chan error, 1)
+	client.OnEvent(func(event string, args json.RawMessage) {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_, err := client.CallContext(ctx, "Agent.Run", map[string]interface{}{
+			"cmd":     "echo hi",
+			"verbose": false,
+		})
+		callDone <- err
+	})
+	go client.Run()
+
+	hostEncoder := json.NewEncoder(hostOut)
+	hostDecoder := json.NewDecoder(hostIn)
+	if err := hostEncoder.Encode(Message{Type: TypeEvent, Name: "ready"}); err != nil {
+		t.Fatal(err)
+	}
+
+	var call Message
+	if err := hostDecoder.Decode(&call); err != nil {
+		t.Fatalf("decode capability call: %v", err)
+	}
+	if call.Type != TypeCall || call.Name != "Agent.Run" {
+		t.Fatalf("unexpected capability call: %+v", call)
+	}
+	if err := hostEncoder.Encode(Message{
+		ID:     call.ID,
+		Type:   TypeResponse,
+		Result: json.RawMessage(`{"ok":true}`),
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case err := <-callDone:
+		if err != nil {
+			t.Fatalf("event capability call failed: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("event handler deadlocked waiting for its capability response")
+	}
+}
+
+func TestClientEventQueueIsBounded(t *testing.T) {
+	client := NewClient(strings.NewReader(""), io.Discard)
+	for i := 0; i < maxClientEventQueue*4; i++ {
+		client.enqueueEvent(Message{Type: TypeEvent, Name: "event"})
+	}
+	client.eventMu.Lock()
+	defer client.eventMu.Unlock()
+	if got := len(client.eventQueue); got != maxClientEventQueue {
+		t.Fatalf("event queue length = %d, want %d", got, maxClientEventQueue)
+	}
+}
+
+func TestClientRejectsOversizedOutgoingMessage(t *testing.T) {
+	client := NewClient(strings.NewReader(""), io.Discard)
+	err := client.write(Message{Type: TypeEvent, Name: strings.Repeat("x", maxLineSize)})
+	if err == nil || !strings.Contains(err.Error(), "exceeds max size") {
+		t.Fatalf("write error = %v, want size rejection", err)
 	}
 }

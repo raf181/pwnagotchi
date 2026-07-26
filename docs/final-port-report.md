@@ -1,5 +1,10 @@
 # Final Port Report
 
+> **Historical record (superseded).** This report describes an earlier
+> migration checkpoint. Use [the documentation index](README.md),
+> [feature matrix](feature-matrix.md), and current source code for operational
+> status.
+
 This document has been superseded by **`docs/migration-ledger.md`**, which
 is now the single running, evidence-based record of what's been ported,
 what's deliberately deferred, and why — kept up to date incrementally

@@ -40,6 +40,9 @@ func (f *fakeRunner) Run(ctx context.Context, name string, args ...string) ([]by
 	f.mu.Lock()
 	f.cmds = append(f.cmds, recordedCmd{name, args})
 	f.mu.Unlock()
+	if f.failing[name+" "+strings.Join(args, " ")] {
+		return nil, fmt.Errorf("forced failure")
+	}
 	if name == "which" && len(args) == 1 {
 		if p, ok := f.which[args[0]]; ok {
 			return []byte(p), nil
@@ -340,6 +343,132 @@ func TestInstallUpdateFailsOnChecksumMismatch(t *testing.T) {
 	got, _ := os.ReadFile(destPath)
 	if string(got) != "old" {
 		t.Fatal("expected the original binary to remain untouched after a checksum failure")
+	}
+}
+
+func TestInstallUpdateRequiresChecksum(t *testing.T) {
+	dir := t.TempDir()
+	destPath := filepath.Join(dir, "bettercap")
+	if err := os.WriteFile(destPath, []byte("old"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	zipData := buildReleaseZip(t, "bettercap", []byte("new"), false)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write(zipData) }))
+	defer srv.Close()
+
+	runner := newFakeRunner()
+	runner.which["bettercap"] = destPath
+	p := New()
+	p.exec = runner
+	p.httpClient = srv.Client()
+
+	update := UpdateInfo{Repo: "jayofelony/bettercap", Available: "2.0.0", URL: srv.URL, Service: "bettercap"}
+	if err := p.installUpdate(update); err == nil || !strings.Contains(err.Error(), "checksum") {
+		t.Fatalf("expected missing-checksum error, got %v", err)
+	}
+	got, _ := os.ReadFile(destPath)
+	if string(got) != "old" {
+		t.Fatal("original binary changed after checksum rejection")
+	}
+}
+
+func TestInstallUpdateLeavesBinaryWhenServiceStopFails(t *testing.T) {
+	dir := t.TempDir()
+	destPath := filepath.Join(dir, "bettercap")
+	if err := os.WriteFile(destPath, []byte("old"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	zipData := buildReleaseZip(t, "bettercap", []byte("new"), true)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write(zipData) }))
+	defer srv.Close()
+
+	runner := newFakeRunner()
+	runner.which["bettercap"] = destPath
+	runner.failing["systemctl stop bettercap"] = true
+	p := New()
+	p.exec = runner
+	p.httpClient = srv.Client()
+
+	update := UpdateInfo{Repo: "jayofelony/bettercap", Available: "2.0.0", URL: srv.URL, Service: "bettercap"}
+	if err := p.installUpdate(update); err == nil {
+		t.Fatal("expected service-stop failure")
+	}
+	got, _ := os.ReadFile(destPath)
+	if string(got) != "old" {
+		t.Fatal("original binary changed after service-stop failure")
+	}
+}
+
+func TestInstallUpdateRestoresBinaryWhenServiceStartFails(t *testing.T) {
+	dir := t.TempDir()
+	destPath := filepath.Join(dir, "bettercap")
+	if err := os.WriteFile(destPath, []byte("old"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	zipData := buildReleaseZip(t, "bettercap", []byte("new"), true)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(zipData)
+	}))
+	defer srv.Close()
+
+	runner := newFakeRunner()
+	runner.which["bettercap"] = destPath
+	runner.failing["systemctl start bettercap"] = true
+	p := New()
+	p.exec = runner
+	p.httpClient = srv.Client()
+
+	update := UpdateInfo{Repo: "jayofelony/bettercap", Available: "2.0.0", URL: srv.URL, Service: "bettercap"}
+	if err := p.installUpdate(update); err == nil {
+		t.Fatal("expected service-start failure")
+	}
+	got, err := os.ReadFile(destPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "old" {
+		t.Fatalf("binary content = %q, want restored old binary", got)
+	}
+}
+
+func TestInstallUpdateRejectsOversizedArchiveFromContentLength(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", fmt.Sprint(maxReleaseZipBytes+1))
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+	p := New()
+	p.httpClient = srv.Client()
+
+	update := UpdateInfo{Repo: "jayofelony/bettercap", Available: "2.0.0", URL: srv.URL, Service: "bettercap"}
+	if err := p.installUpdate(update); err == nil || !strings.Contains(err.Error(), "too large") {
+		t.Fatalf("expected oversized-archive error, got %v", err)
+	}
+}
+
+func TestCheckAndInstallDoesNotSelfUpdateRunningDaemon(t *testing.T) {
+	p, _ := newTestPlugin(t)
+	p.interval = 1
+	p.install = true
+	p.clock = &fakeClock{now: time.Now()}
+	p.repoSpecs = []repoSpec{
+		{repo: "jayofelony/pwnagotchi", serviceName: "pwnagotchi", localVer: func(*Plugin) string { return "1.0.0" }},
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(githubReleaseJSON("v2.0.0", "https://example.com/pwnagotchi_aarch64.zip")))
+	}))
+	defer srv.Close()
+	p.httpClient = srv.Client()
+	p.arch = "aarch64"
+	p.githubAPIBase(srv.URL)
+	p.exec = newFakeRunner()
+
+	p.checkAndInstall()
+
+	for _, cmd := range p.exec.(*fakeRunner).snapshot() {
+		if cmd.name == "systemctl" {
+			t.Fatalf("self-update attempted service mutation: %+v", cmd)
+		}
 	}
 }
 

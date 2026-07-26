@@ -4,13 +4,19 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/jayofelony/pwnagotchi/internal/config"
 )
+
+const maxReleaseResponseBytes = 1 << 20
+
+var updateHTTPClient = &http.Client{Timeout: 15 * time.Second}
 
 // CheckUpdate ports cli.py's --check-update branch: fetches the latest
 // GitHub release, compares versions with the SAME lexical (non-numeric)
@@ -19,17 +25,23 @@ import (
 // exists — prompts interactively before touching /root/.auto-update and
 // restarting the service, exactly like Python's input()-driven flow.
 func CheckUpdate(currentVersion string, stdin *os.File, stdout *os.File) error {
-	resp, err := http.Get("https://api.github.com/repos/jayofelony/pwnagotchi/releases/latest")
+	resp, err := updateHTTPClient.Get("https://api.github.com/repos/jayofelony/pwnagotchi/releases/latest")
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return fmt.Errorf("update check: unexpected status %s", resp.Status)
+	}
 
 	var latest struct {
 		TagName string `json:"tag_name"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&latest); err != nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, maxReleaseResponseBytes)).Decode(&latest); err != nil {
 		return err
+	}
+	if latest.TagName == "" {
+		return fmt.Errorf("update check: release response is missing tag_name")
 	}
 	latestVer := strings.ReplaceAll(latest.TagName, "v", "")
 

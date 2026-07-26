@@ -97,7 +97,7 @@ const generateQRCode = (elementId, text, options = {}) => {
 
   try {
     // Clear existing content
-    element.innerHTML = "";
+    element.replaceChildren();
 
     // Check if kjua library is available
     if (typeof kjua !== "undefined") {
@@ -112,15 +112,17 @@ const generateQRCode = (elementId, text, options = {}) => {
       element.appendChild(qrCanvas);
     } else {
       console.warn("kjua library not loaded");
-      element.innerHTML =
-        '<p style="color: var(--text-muted);">QR Code library not available</p>';
+      const message = document.createElement("p");
+      message.style.color = "var(--text-muted)";
+      message.textContent = "QR Code library not available";
+      element.appendChild(message);
     }
   } catch (e) {
     console.error("QR Code generation error:", e);
-    element.innerHTML =
-      '<p style="color: var(--text-muted);">QR Code unavailable: ' +
-      e.message +
-      "</p>";
+    const message = document.createElement("p");
+    message.style.color = "var(--text-muted)";
+    message.textContent = "QR Code unavailable: " + e.message;
+    element.replaceChildren(message);
   }
 };
 

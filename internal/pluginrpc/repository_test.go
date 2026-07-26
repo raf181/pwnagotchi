@@ -1,11 +1,13 @@
 package pluginrpc
 
 import (
+	"bytes"
 	"context"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 )
 
@@ -35,6 +37,38 @@ func TestFetchIndexPropagatesNon200(t *testing.T) {
 	}
 }
 
+func TestFetchIndexRejectsInvalidSchema(t *testing.T) {
+	cases := map[string]string{
+		"missing version": `{"plugins":[]}`,
+		"unknown field":   `{"index_version":1,"plugins":[],"extra":true}`,
+		"unsafe name":     `{"index_version":1,"plugins":[{"name":"../bad","version":"1","manifest_url":"https://example.invalid/bad"}]}`,
+		"duplicate name":  `{"index_version":1,"plugins":[{"name":"same","version":"1","manifest_url":"https://example.invalid/one"},{"name":"same","version":"2","manifest_url":"https://example.invalid/two"}]}`,
+		"invalid URL":     `{"index_version":1,"plugins":[{"name":"bad","version":"1","manifest_url":"file:///tmp/bad"}]}`,
+	}
+	for label, body := range cases {
+		t.Run(label, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_, _ = w.Write([]byte(body))
+			}))
+			defer srv.Close()
+			if _, err := FetchIndex(context.Background(), srv.Client(), srv.URL); err == nil {
+				t.Fatal("expected invalid repository index to be rejected")
+			}
+		})
+	}
+}
+
+func TestFetchIndexRejectsOversizedBody(t *testing.T) {
+	body := bytes.Repeat([]byte("x"), MaxIndexBytes+1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+	if _, err := FetchIndex(context.Background(), srv.Client(), srv.URL); err == nil {
+		t.Fatal("expected oversized repository index to be rejected")
+	}
+}
+
 func TestFetchManifestParsesRealHTTPResponse(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(validManifestTOML))
@@ -58,6 +92,17 @@ func TestFetchManifestRejectsInvalidBody(t *testing.T) {
 
 	if _, err := FetchManifest(context.Background(), srv.Client(), srv.URL); err == nil {
 		t.Fatal("expected an error for an invalid manifest body")
+	}
+}
+
+func TestFetchManifestRejectsOversizedBody(t *testing.T) {
+	body := bytes.Repeat([]byte("x"), MaxManifestBytes+1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+	if _, err := FetchManifest(context.Background(), srv.Client(), srv.URL); err == nil {
+		t.Fatal("expected oversized manifest to be rejected")
 	}
 }
 
@@ -96,5 +141,28 @@ func TestDownloadExecutablePropagatesNon200(t *testing.T) {
 	dest := filepath.Join(t.TempDir(), "plugin-bin")
 	if err := DownloadExecutable(context.Background(), srv.Client(), srv.URL, dest); err == nil {
 		t.Fatal("expected an error for a 500 response")
+	}
+}
+
+func TestDownloadExecutableRejectsOversizedContentWithoutReplacingDestination(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", strconv.FormatInt(MaxExecutableBytes+1, 10))
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	dest := filepath.Join(t.TempDir(), "plugin-bin")
+	if err := os.WriteFile(dest, []byte("existing"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := DownloadExecutable(context.Background(), srv.Client(), srv.URL, dest); err == nil {
+		t.Fatal("expected an oversized executable to be rejected")
+	}
+	data, err := os.ReadFile(dest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "existing" {
+		t.Fatalf("existing destination was changed: %q", data)
 	}
 }

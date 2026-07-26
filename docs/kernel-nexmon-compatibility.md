@@ -1,5 +1,10 @@
 # Kernel / nexmon compatibility — evidence trail
 
+> **Compatibility snapshot, 2026-07-22.** Kernel and repository versions can
+> drift. The 2026-07-26 live-device audit did not establish that the inspected
+> Pi booted this exact pinned image artifact, so the runtime questions near the
+> end of this document remain open until that artifact is identified and tested.
+
 Real findings, not guesses, gathered while diagnosing why
 `brcmfmac-nexmon-dkms` failed to build in `pi-gen-stage/06-nexmon` — see
 `deploy/pi-gen-stage/05a-pin-kernel/` for the fix this evidence led to.

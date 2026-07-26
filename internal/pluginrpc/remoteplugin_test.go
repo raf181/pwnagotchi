@@ -28,6 +28,8 @@ func (a *fakeAgent) Session(string) (interface{}, error) { return nil, nil }
 func (a *fakeAgent) IsModuleRunning(string) bool         { return false }
 func (a *fakeAgent) StartModule(string)                  {}
 func (a *fakeAgent) RestartModule(string)                {}
+func (a *fakeAgent) SupportedChannels() []int            { return []int{1, 6, 11} }
+func (a *fakeAgent) ResetHistory()                       {}
 
 var _ pluginmanager.AgentCapability = (*fakeAgent)(nil)
 
@@ -113,5 +115,29 @@ func TestRemotePluginCapabilityCallDeniedWithoutManifestGrant(t *testing.T) {
 	defer agent.mu.Unlock()
 	if len(agent.runs) != 0 {
 		t.Fatal("expected the real Agent.Run to never have been invoked")
+	}
+}
+
+type fakeLogger struct {
+	mu    sync.Mutex
+	lines int
+}
+
+func (l *fakeLogger) Printf(string, ...interface{}) {
+	l.mu.Lock()
+	l.lines++
+	l.mu.Unlock()
+}
+
+func TestLogCapabilityCallDeniedWithoutManifestGrant(t *testing.T) {
+	logger := &fakeLogger{}
+	dispatcher := NewCapabilityDispatcher(pluginmanager.Capabilities{Log: logger}, nil)
+	if _, err := dispatcher.Dispatch("Log.Printf", []byte(`{"message":"not granted"}`)); err == nil {
+		t.Fatal("expected Log.Printf to be denied without a manifest grant")
+	}
+	logger.mu.Lock()
+	defer logger.mu.Unlock()
+	if logger.lines != 0 {
+		t.Fatal("logger was called despite missing Log grant")
 	}
 }

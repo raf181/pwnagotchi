@@ -442,6 +442,26 @@ func TestSaveAndLoadRecoveryDataRoundTrip(t *testing.T) {
 	}
 }
 
+func TestSupportedChannelsReturnsCopyAndResetHistoryClearsState(t *testing.T) {
+	a := &Agent{
+		supportedChannels: []int{1, 6, 11},
+		history:           map[string]int{"aa:bb": 2},
+	}
+
+	channels := a.SupportedChannels()
+	channels[0] = 99
+	if got := a.SupportedChannels()[0]; got != 1 {
+		t.Fatalf("SupportedChannels exposed internal storage: got %d, want 1", got)
+	}
+
+	a.ResetHistory()
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if len(a.history) != 0 {
+		t.Fatalf("history was not cleared: %v", a.history)
+	}
+}
+
 func TestFetchStatsSinglePass(t *testing.T) {
 	fake := newBettercapFake()
 	srv := httptest.NewServer(fake.handler())

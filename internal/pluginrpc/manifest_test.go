@@ -1,8 +1,10 @@
 package pluginrpc
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -106,6 +108,45 @@ func TestParseManifestRejectsInvalidTOML(t *testing.T) {
 	}
 }
 
+func TestParseManifestRejectsUnsafeOrUnsupportedFields(t *testing.T) {
+	cases := map[string]string{
+		"path traversal name": strings.Replace(validManifestTOML, `name = "example-plugin"`, `name = "../outside"`, 1),
+		"hidden name":         strings.Replace(validManifestTOML, `name = "example-plugin"`, `name = ".hidden"`, 1),
+		"invalid URL":         strings.Replace(validManifestTOML, `https://example.invalid/example-plugin/bin`, `file:///tmp/plugin`, 1),
+		"unsupported cap":     strings.Replace(validManifestTOML, `["Agent", "View"]`, `["System"]`, 1),
+		"duplicate cap":       strings.Replace(validManifestTOML, `["Agent", "View"]`, `["Agent", "Agent"]`, 1),
+		"unknown field":       validManifestTOML + "\ncapabilites = [\"Agent\"]\n",
+	}
+	for label, body := range cases {
+		if _, err := ParseManifest([]byte(body)); err == nil {
+			t.Errorf("%s: expected an error", label)
+		}
+	}
+}
+
+func TestManifestValidateTarget(t *testing.T) {
+	m, err := ParseManifest([]byte(validManifestTOML))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := m.ValidateTarget("linux", "arm64"); err != nil {
+		t.Fatalf("matching target rejected: %v", err)
+	}
+	if err := m.ValidateTarget("linux", "amd64"); err == nil {
+		t.Fatal("expected a mismatched target to be rejected")
+	}
+}
+
+func TestReadManifestFileRejectsOversizedFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "manifest.toml")
+	if err := os.WriteFile(path, bytes.Repeat([]byte("x"), MaxManifestBytes+1), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := ReadManifestFile(path); err == nil {
+		t.Fatal("expected an oversized local manifest to be rejected")
+	}
+}
+
 func TestVerifyExecutableMatchesRealChecksum(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "bin")
@@ -153,5 +194,32 @@ func TestVerifyExecutableDetectsTamperingAfterManifestIssued(t *testing.T) {
 	os.WriteFile(path, []byte("tampered content!!"), 0o755)
 	if err := m.VerifyExecutable(path); err == nil {
 		t.Fatal("expected tampering to be detected")
+	}
+}
+
+func TestVerifyExecutableRejectsNonExecutableAndSymlink(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "plugin")
+	if err := os.WriteFile(path, []byte("payload"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sum, err := SHA256File(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := &Manifest{Name: "plugin", SHA256: sum}
+	if err := m.VerifyExecutable(path); err == nil {
+		t.Fatal("expected a file without executable permission to be rejected")
+	}
+
+	if err := os.Chmod(path, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(dir, "plugin-link")
+	if err := os.Symlink(path, link); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.VerifyExecutable(link); err == nil {
+		t.Fatal("expected a symbolic-link executable to be rejected")
 	}
 }

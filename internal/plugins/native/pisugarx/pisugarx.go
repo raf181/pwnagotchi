@@ -12,6 +12,7 @@ package pisugarx
 import (
 	"context"
 	"fmt"
+	"html"
 	"net/http"
 	"sort"
 	"strings"
@@ -723,8 +724,8 @@ func (p *Plugin) OnWebhook(subpath string, r *http.Request) (pluginmanager.Webho
 	var b strings.Builder
 	b.WriteString("<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\"><title>PiSugarX Parameters</title></head><body>")
 	b.WriteString("<h1>PiSugarX Parameters</h1><table><thead><tr><th>Parameter</th><th>Value</th></tr></thead><tbody>")
-	fmt.Fprintf(&b, "<tr><td>Server version</td><td>%s</td></tr>", version)
-	fmt.Fprintf(&b, "<tr><td>PiSugar Model</td><td>%s</td></tr>", string(model))
+	fmt.Fprintf(&b, "<tr><td>Server version</td><td>%s</td></tr>", html.EscapeString(version))
+	fmt.Fprintf(&b, "<tr><td>PiSugar Model</td><td>%s</td></tr>", html.EscapeString(string(model)))
 	fmt.Fprintf(&b, "<tr><td>Battery Level</td><td>%.0f%%</td></tr>", level)
 	fmt.Fprintf(&b, "<tr><td>Battery Voltage</td><td>%.2fV</td></tr>", voltage)
 	b.WriteString("<tr><td>Battery Current</td><td>N/A</td></tr>")

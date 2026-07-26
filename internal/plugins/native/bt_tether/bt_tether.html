@@ -1,8 +1,9 @@
-HTML_TEMPLATE = """<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
   <head>
     <title>Bluetooth Tether</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="csrf-token" content="{{.CSRF}}" />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath fill='%2358a6ff' d='M50 10 L70 25 L70 45 L50 60 L50 90 L30 75 L30 55 L50 40 L50 10 M50 40 L50 60'/%3E%3C/svg%3E" />
     <style>
       body { font-family: sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; background: #0d1117; color: #d4d4d4; }
@@ -150,8 +151,21 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
     <script>
       const macInput = document.getElementById("macInput");
-      let statusInterval = null;
-      let logInterval = null;
+      const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+      const mutationOptions = { method: 'POST', headers: { 'X-CSRF-Token': csrfToken } };
+	      let statusInterval = null;
+	      let logInterval = null;
+
+	      function escapeHTML(value) {
+	        const replacements = {
+	          '&': '&amp;',
+	          '<': '&lt;',
+	          '>': '&gt;',
+	          '"': '&quot;',
+	          "'": '&#39;'
+	        };
+	        return String(value ?? '').replace(/[&<>"']/g, char => replacements[char]);
+	      }
 
       // Load trusted devices on page load
       loadTrustedDevicesSummary();
@@ -269,8 +283,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         document.getElementById("statusConnected").innerHTML = 
           `🔵 Connected: <span style="color: ${data.connected ? '#4ec9b0' : '#f48771'};">${data.connected ? '✓ Yes' : '✗ No'}</span>`;
 
-        document.getElementById("statusInternet").innerHTML = 
-          `🌐 Internet: <span style="color: ${data.pan_active ? '#4ec9b0' : '#f48771'};">${data.pan_active ? '✓ Active' : '✗ Not Active'}</span>${data.interface ? ` <span style="color: #888;">(${data.interface})</span>` : ''}`;
+	        document.getElementById("statusInternet").innerHTML =
+	          `🌐 Internet: <span style="color: ${data.pan_active ? '#4ec9b0' : '#f48771'};">${data.pan_active ? '✓ Active' : '✗ Not Active'}</span>${data.interface ? ` <span style="color: #888;">(${escapeHTML(data.interface)})</span>` : ''}`;
 
         // Show/hide test internet card based on connection status
         const testInternetCard = document.getElementById('testInternetCard');
@@ -282,9 +296,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
         // Show IP address if available
         const statusIPElement = document.getElementById('statusIP');
-        if (data.ip_address && data.pan_active) {
-          statusIPElement.style.display = 'block';
-          statusIPElement.innerHTML = `🔢 IP Address: <span style="color: #4ec9b0;">${data.ip_address}</span>`;
+	        if (data.ip_address && data.pan_active) {
+	          statusIPElement.style.display = 'block';
+	          statusIPElement.innerHTML = `🔢 IP Address: <span style="color: #4ec9b0;">${escapeHTML(data.ip_address)}</span>`;
         } else {
           statusIPElement.style.display = 'none';
         }
@@ -323,8 +337,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             }
           }
 
-          statusActiveConnection.style.display = 'block';
-          statusActiveConnection.innerHTML = `${connEmoji} <span style="color: #4ec9b0; font-weight: bold;">${connType}</span> <span style="color: #888;">(${data.default_route_interface})</span>${connDetails}`;
+	          statusActiveConnection.style.display = 'block';
+	          statusActiveConnection.innerHTML = `${connEmoji} <span style="color: #4ec9b0; font-weight: bold;">${connType}</span> <span style="color: #888;">(${escapeHTML(data.default_route_interface)})</span>${connDetails}`;
         } else {
           statusActiveConnection.style.display = 'none';
         }
@@ -441,7 +455,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         showFeedback("Connecting to phone... Watch for pairing dialog!", "info");
 
         try {
-          const response = await fetch(`/plugins/bt-tether/connect?mac=${encodeURIComponent(mac)}`, { method: 'GET' });
+          const response = await fetch(`/plugins/bt-tether/connect?mac=${encodeURIComponent(mac)}`, mutationOptions);
           const data = await response.json();
 
           if (data.success) {
@@ -471,13 +485,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         scanBtn.disabled = true;
         scanBtn.innerHTML = '<span class="spinner"></span> Scanning...';
         scanResults.style.display = 'block';
-        deviceList.innerHTML = '';
+	        deviceList.replaceChildren();
         scanStatus.innerHTML = '<span class="spinner"></span> Scanning for devices...';
 
         showFeedback("Scanning for devices... Keep phone Bluetooth settings open!", "info");
 
         try {
-          const response = await fetch('/plugins/bt-tether/scan', { method: 'GET' });
+          const response = await fetch('/plugins/bt-tether/scan', mutationOptions);
           await response.json();
 
           // Poll /scan-progress every 2 seconds to show devices as they appear
@@ -493,19 +507,31 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
               if (progressData.devices && progressData.devices.length > lastDeviceCount) {
                 lastDeviceCount = progressData.devices.length;
-                deviceList.innerHTML = '';
-                progressData.devices.forEach(device => {
-                  const div = document.createElement('div');
-                  div.className = 'device-item';
-                  div.innerHTML = `
-                    <div style="flex: 1; font-family: 'Courier New', monospace; font-size: 12px;">
-                      <b>${device.name}</b><br>
-                      <small style="color: #888;">${device.mac}</small>
-                    </div>
-                    <button onclick="pairAndConnectDevice('${device.mac}', '${device.name.replace(/'/g, "\\'")}'); return false;" class="success" style="margin: 0; padding: 6px 12px; font-size: 12px;">Pair</button>
-                  `;
-                  deviceList.appendChild(div);
-                });
+	                deviceList.replaceChildren();
+	                progressData.devices.forEach(device => {
+	                  const div = document.createElement('div');
+	                  div.className = 'device-item';
+	                  const details = document.createElement('div');
+	                  details.style.cssText = "flex: 1; font-family: 'Courier New', monospace; font-size: 12px;";
+	                  const deviceName = document.createElement('b');
+	                  deviceName.textContent = String(device.name || '');
+	                  const lineBreak = document.createElement('br');
+	                  const deviceMAC = document.createElement('small');
+	                  deviceMAC.style.color = '#888';
+	                  deviceMAC.textContent = String(device.mac || '');
+	                  details.append(deviceName, lineBreak, deviceMAC);
+
+	                  const pairButton = document.createElement('button');
+	                  pairButton.className = 'success';
+	                  pairButton.style.cssText = 'margin: 0; padding: 6px 12px; font-size: 12px;';
+	                  pairButton.type = 'button';
+	                  pairButton.textContent = 'Pair';
+	                  pairButton.addEventListener('click', () => {
+	                    pairAndConnectDevice(String(device.mac || ''), String(device.name || ''));
+	                  });
+	                  div.append(details, pairButton);
+	                  deviceList.appendChild(div);
+	                });
                 scanStatus.innerHTML = `<span class="spinner"></span> Found ${progressData.devices.length} device(s)... still scanning`;
               }
 
@@ -516,7 +542,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                   showFeedback(`Found ${progressData.devices.length} device(s). Click Pair to connect!`, "success");
                 } else {
                   scanStatus.textContent = 'Scan complete - No devices found';
-                  deviceList.innerHTML = '';
+	                  deviceList.replaceChildren();
                   showFeedback("No devices found. Make sure phone Bluetooth is ON and visible.", "warning");
                 }
                 scanBtn.disabled = false;
@@ -613,12 +639,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             // Hide device discovery section when trusted devices exist OR when connecting
             deviceDiscoverySection.style.display = 'none';
 
-            if (connectedDevice) {
-              summaryDiv.innerHTML = `<span style="color: #3fb950;">🔵 Connected to ${connectedDevice.name}</span><br><small style="color: #888;">${connectedDevice.mac}</small>`;
-            } else if (napDevices.length > 0) {
-              summaryDiv.innerHTML = napDevices.map(d => 
-                `<div style="margin: 4px 0;">📱 ${d.name}<br><small style="color: #888;">${d.mac}</small></div>`
-              ).join('');
+	            if (connectedDevice) {
+	              summaryDiv.innerHTML = `<span style="color: #3fb950;">🔵 Connected to ${escapeHTML(connectedDevice.name)}</span><br><small style="color: #888;">${escapeHTML(connectedDevice.mac)}</small>`;
+	            } else if (napDevices.length > 0) {
+	              summaryDiv.innerHTML = napDevices.map(d =>
+	                `<div style="margin: 4px 0;">📱 ${escapeHTML(d.name)}<br><small style="color: #888;">${escapeHTML(d.mac)}</small></div>`
+	              ).join('');
             } else {
               summaryDiv.innerHTML = `<span style="color: #f85149;">${data.devices.length} paired device(s) but none support tethering</span>`;
               // Show device discovery section if no devices support tethering AND not connecting
@@ -649,11 +675,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         if (scanResults) {
           scanResults.style.display = 'none';
         }
-        if (deviceList) {
-          deviceList.innerHTML = '';
-        }
-        if (scanStatus) {
-          scanStatus.innerHTML = '';
+	        if (deviceList) {
+	          deviceList.replaceChildren();
+	        }
+	        if (scanStatus) {
+	          scanStatus.replaceChildren();
         }
 
         // Hide scan card immediately when pairing starts
@@ -669,7 +695,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         connectBtn.innerHTML = '<span class="spinner"></span> Connecting...';
 
         try {
-          const response = await fetch(`/plugins/bt-tether/pair-device?mac=${encodeURIComponent(mac)}&name=${encodeURIComponent(name)}`, { method: 'GET' });
+          const response = await fetch(`/plugins/bt-tether/pair-device?mac=${encodeURIComponent(mac)}&name=${encodeURIComponent(name)}`, mutationOptions);
           const data = await response.json();
 
           if (data.success) {
@@ -736,29 +762,29 @@ HTML_TEMPLATE = """<!DOCTYPE html>
           resultHtml += `</div>`;
 
           // DNS servers
-          if (data.dns_servers) {
-            resultHtml += `<div style="margin-bottom: 8px; padding-left: 20px; font-size: 12px;">`;
-            resultHtml += `<span style="color: #666;">DNS Servers:</span> <span style="color: #0066cc;">${data.dns_servers}</span>`;
+	          if (data.dns_servers) {
+	            resultHtml += `<div style="margin-bottom: 8px; padding-left: 20px; font-size: 12px;">`;
+	            resultHtml += `<span style="color: #666;">DNS Servers:</span> <span style="color: #0066cc;">${escapeHTML(data.dns_servers)}</span>`;
             resultHtml += `</div>`;
           }
 
           // DNS error details
-          if (!data.dns_success && data.dns_error) {
-            resultHtml += `<div style="margin-bottom: 8px; padding-left: 20px; font-size: 11px; background: #fff3cd; padding: 6px; border-radius: 3px;">`;
-            resultHtml += `<span style="color: #856404;">Error: ${data.dns_error.substring(0, 150)}...</span>`;
+	          if (!data.dns_success && data.dns_error) {
+	            resultHtml += `<div style="margin-bottom: 8px; padding-left: 20px; font-size: 11px; background: #fff3cd; padding: 6px; border-radius: 3px;">`;
+	            resultHtml += `<span style="color: #856404;">Error: ${escapeHTML(String(data.dns_error).substring(0, 150))}...</span>`;
             resultHtml += `</div>`;
           }
 
           // bnep0 IP
           resultHtml += `<div style="margin-bottom: 8px;">`;
           resultHtml += `<b>💻 bnep0 IP:</b> `;
-          resultHtml += data.bnep0_ip ? `<span style="color: #28a745;">${data.bnep0_ip}</span>` : '<span style="color: #dc3545;">No IP assigned</span>';
+	          resultHtml += data.bnep0_ip ? `<span style="color: #28a745;">${escapeHTML(data.bnep0_ip)}</span>` : '<span style="color: #dc3545;">No IP assigned</span>';
           resultHtml += `</div>`;
 
           // Default route
           resultHtml += `<div style="margin-bottom: 8px;">`;
           resultHtml += `<b>🚦 Default Route:</b> `;
-          resultHtml += data.default_route ? `<span style="color: #0066cc;">${data.default_route}</span>` : '<span style="color: #dc3545;">None</span>';
+	          resultHtml += data.default_route ? `<span style="color: #0066cc;">${escapeHTML(data.default_route)}</span>` : '<span style="color: #dc3545;">None</span>';
           resultHtml += `</div>`;
 
           // Localhost route - CRITICAL for bettercap API
@@ -768,7 +794,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             const isLoopback = data.localhost_routes.includes('lo') || data.localhost_routes.includes('local');
             const routeColor = isLoopback ? '#28a745' : '#dc3545';
             const routeIcon = isLoopback ? '✓' : '⚠️';
-            resultHtml += `<span style="color: ${routeColor};">${routeIcon} ${data.localhost_routes}</span>`;
+	            resultHtml += `<span style="color: ${routeColor};">${routeIcon} ${escapeHTML(data.localhost_routes)}</span>`;
             if (!isLoopback) {
               resultHtml += `<div style="margin-top: 4px; padding: 6px; background: #fff3cd; border-radius: 3px; font-size: 11px;">`;
               resultHtml += `<span style="color: #856404;">⚠️ WARNING: Localhost not routing through 'lo' interface! This may prevent bettercap API from working.</span>`;
@@ -823,7 +849,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         showFeedback("Disconnecting from device...", "info");
 
         try {
-          const response = await fetch(`/plugins/bt-tether/disconnect?mac=${encodeURIComponent(mac)}`, { method: 'GET' });
+          const response = await fetch(`/plugins/bt-tether/disconnect?mac=${encodeURIComponent(mac)}`, mutationOptions);
           const data = await response.json();
 
           if (data.success) {
@@ -873,7 +899,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
               else if (level === 'INFO') color = '#4fc1ff';
               else if (level === 'DEBUG') color = '#888';
 
-              return `<div><span style=\"color: #888;\">${timestamp}</span> <span style=\"color: ${color}; font-weight: bold;\">[${level}]</span> ${message}</div>`;
+	              return `<div><span style=\"color: #888;\">${escapeHTML(timestamp)}</span> <span style=\"color: ${color}; font-weight: bold;\">[${escapeHTML(level)}]</span> ${escapeHTML(message)}</div>`;
             }).join('');
 
             // Only auto-scroll if user was at the bottom, otherwise preserve their scroll position
